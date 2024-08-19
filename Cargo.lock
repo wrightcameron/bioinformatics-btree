@@ -61,16 +61,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "bioinformatics-btree"
-version = "0.1.0"
-dependencies = [
- "clap",
- "env_logger",
- "log",
- "regex",
-]
-
-[[package]]
 name = "clap"
 version = "4.5.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -138,6 +128,24 @@ dependencies = [
  "humantime",
  "log",
 ]
+
+[[package]]
+name = "gene-bank-create-btree"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "env_logger",
+ "log",
+ "regex",
+]
+
+[[package]]
+name = "gene-bank-search-btree"
+version = "0.1.0"
+
+[[package]]
+name = "gene-bank-search-database"
+version = "0.1.0"
 
 [[package]]
 name = "heck"

@@ -1,6 +1,43 @@
-pub struct BTree {}
+pub struct BTree {
+    root_node: Option<Node>,
+    degree: i32,
+}
 
 impl BTree {
+    pub fn new() -> BTree {
+        //TODO Handle degree, fileName, useCache, cacheSize
+        btree = BTree { ..Default::default() };
+        btree.degree = 0;
+        // Create Root node
+        root_node: Node = Node:new();
+        root_node.is_leaf(true);
+        root_node.number_keys = 0;
+        // Need to encapsulate the node in an option
+        btree.root_node = root_node
+        // TODO Do we need some offset here?
+        btre
+        
+
+    pub fn btree_search(given_root, key) -> Option<TreeObject> {
+
+    }
+
+    pub fn btree_split_child(given_root, index) {
+
+    }
+
+    pub fn btree_insert(key: TreeObject){
+
+    }
+
+    pub fn btree_insert_non_full(given_root, key) {
+
+    }
+
+    pub fn in_order_traversal(root, writer, sequence_length){
+
+    }
+
     /**
      * @return Returns the number of keys in the BTree.
      */
@@ -47,7 +84,7 @@ impl BTree {
      *
      */
     // void insert(TreeObject obj) throws IOException;
-    pub fn insert(obj: TreeObj) {}
+    pub fn insert<T>(obj: T) {}
 
     /**
      * Print out all objects in the given BTree in an inorder traversal to a file.
@@ -64,5 +101,19 @@ impl BTree {
      *            The key value to search for.
      */
     // TreeObject search(long key) throws IOException;
-    pub fn search(key: i32) -> TreeObj {}
+    pub fn search<T>(key: i32) -> T {
+        T
+    }
+}
+
+impl Default for BTree {
+    fn default() -> BTree {
+        BTree {}
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
 }

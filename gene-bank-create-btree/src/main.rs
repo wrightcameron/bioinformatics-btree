@@ -1,45 +1,44 @@
-// mod b_tree;
+// mod btree;
 
 use clap::Parser;
 use regex::Regex;
 use std::fs;
 use std::path::Path;
+use std::collections::BTreeSet;
+
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
 struct Cli {
-    /*
     /// specifies whether the program should use cache (value 1) or no cache (value 0); if the value is 1, the <cache-size> has to be specified
+    #[arg(short, long, default_value_t = 0)]
     cache: i32,
     /// the degree to be used for the B-Tree. If the user specifies 0, then our program should choose the optimum degree based on a disk block size of 4096 bytes and the size of our B-Tree node on disk
+    #[arg(short, long, default_value_t = 0)]
     degree: i32,
-    */
     /// input *.gbk file containing the input DNA sequences
     #[arg(short, long)]
     gbkfile: String,
-
     /// integer that must be between 1 and 31 (inclusive)
-    #[arg(short, long)]
+    #[arg(short, long, default_value_t = 10)]
     length: i32,
-    /*
     /// integer between 100 and 10000 (inclusive) that represents the maximum number of BTreeNode objects that can be stored in memory
+    #[arg(short = 's', long)]
     cachesize: Option<i32>,
-    */
-
     /// Enable debugging messages, optional argument with a default value of zero
-    #[arg(short, long)]
+    #[arg(short = 'v', long)]
     debug: Option<i8>,
 }
 
 fn main() {
     // cli args
     let cli = Cli::parse();
-    // let cache = cli.cache;
-    // let degree = cli.degree;
+    let cache = cli.cache;
+    let degree = cli.degree;
     let gbk_file = cli.gbkfile;
     let sequence_length = cli.length;
-    // let cache_size = cli.cachesize.unwrap_or(100);
-    // let debug = cli.debug.unwrap_or(0);
+    let cache_size = cli.cachesize.unwrap_or(100);
+    let debug = cli.debug.unwrap_or(0);
     if cli.debug.unwrap_or(0) == 1 {
         std::env::set_var("RUST_LOG", "debug");
         env_logger::init();
@@ -52,6 +51,8 @@ fn main() {
     // TODO Combine with if file exists above cause function returns None if not found.
     // Scan gbk file
     let dna_sequences = parse_gbk(&gbk_file).expect("No Sequences found");
+    // TODO Need to handle n characters
+    // Get sequences into lengths
     let chunk_sequences: Vec<String> = dna_sequences.iter().map(| x | {
         x.chars().collect::<Vec<char>>()
             .chunks(sequence_length as usize)
@@ -60,7 +61,12 @@ fn main() {
     }).collect::<Vec<Vec<String>>>().concat();
     log::debug!("{:?}", chunk_sequences);
     //TODO Create BTree Object
+    let mut btree = BTreeSet::new();
+    for i in chunk_sequences.iter() {
+        btree.insert(i);
+    }
     //TODO Save btree object to disk
+    println!("Done");
 }
 
 /// Parse the GBK file for DNA sequences
