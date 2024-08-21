@@ -2,6 +2,7 @@
 members = [
 	"gene-bank-create-btree",	
 	"gene-bank-search-btree",
-	"gene-bank-search-database"
+	"gene-bank-search-database",
+	"btree"
 ]
 
