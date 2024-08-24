@@ -1,10 +1,8 @@
-// mod btree;
-
 use clap::Parser;
 use regex::Regex;
 use std::fs;
 use std::path::Path;
-use std::collections::BTreeSet;
+use btree::BTree;
 
 
 #[derive(Parser)]
@@ -12,22 +10,22 @@ use std::collections::BTreeSet;
 struct Cli {
     /// specifies whether the program should use cache (value 1) or no cache (value 0); if the value is 1, the <cache-size> has to be specified
     #[arg(short, long, default_value_t = 0)]
-    cache: i32,
+    cache: u32,
     /// the degree to be used for the B-Tree. If the user specifies 0, then our program should choose the optimum degree based on a disk block size of 4096 bytes and the size of our B-Tree node on disk
     #[arg(short, long, default_value_t = 0)]
-    degree: i32,
+    degree: u32,
     /// input *.gbk file containing the input DNA sequences
     #[arg(short, long)]
     gbkfile: String,
     /// integer that must be between 1 and 31 (inclusive)
     #[arg(short, long, default_value_t = 10)]
-    length: i32,
+    length: u32,
     /// integer between 100 and 10000 (inclusive) that represents the maximum number of BTreeNode objects that can be stored in memory
     #[arg(short = 's', long)]
-    cachesize: Option<i32>,
+    cachesize: Option<u32>,
     /// Enable debugging messages, optional argument with a default value of zero
     #[arg(short = 'v', long)]
-    debug: Option<i8>,
+    debug: Option<u8>,
 }
 
 fn main() {
@@ -61,7 +59,8 @@ fn main() {
     }).collect::<Vec<Vec<String>>>().concat();
     log::debug!("{:?}", chunk_sequences);
     //TODO Create BTree Object
-    let mut btree = BTreeSet::new();
+    let use_cache = cache == 0;
+    let mut btree = BTree::new(sequence_length, degree, &gbk_file, use_cache, cache_size);
     for i in chunk_sequences.iter() {
         btree.insert(i);
     }
