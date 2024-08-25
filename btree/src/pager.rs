@@ -1,10 +1,12 @@
 use std::fs::File;
 use std::path::Path;
 use std::io::{BufReader, BufWriter, Read, Write};
-use crate::btree_node::{Node};
+use crate::btree_node::Node;
+use crate::btree_cache::BTreeCache;
 
 pub struct Pager {
     file: File,
+    cache: Option<BTreeCache<u32>>,
 
 }
 
@@ -12,7 +14,12 @@ impl Pager {
     pub fn new(file_name: &str, use_cache: bool, cache_size: u32) -> Result<Pager, std::io::Error> {
         let path = Path::new(&file_name);
         let file = File::create(path)?;
-        let pager = Pager { file };
+        let cache = if use_cache {
+            Some(BTreeCache::new(cache_size) )
+        } else {
+            None
+        };
+        let pager = Pager { file, cache };
         Ok(pager)
     }
 

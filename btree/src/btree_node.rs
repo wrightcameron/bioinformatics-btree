@@ -25,11 +25,11 @@ impl Node<'_> {
 }
 
 pub struct TreeObject {
-    obj: i64,
+    pub obj: u32,
 }
 
 impl TreeObject{
-    pub fn new(obj: i64) -> Self {
+    pub fn new(obj: u32) -> Self {
         TreeObject {obj}
     }
 }

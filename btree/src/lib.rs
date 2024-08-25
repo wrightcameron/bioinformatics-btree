@@ -40,6 +40,7 @@ impl BTree<'_> {
         root_node.offset = 12;
         // Need to encapsulate the node in an option
         btree.root_node = Some(root_node);
+        btree.number_of_nodes = 1;
         // TODO Do we need some offset here?
 
         let output_file = format!("{file_name}.btree.data.{sequence_length}.{degree}");
@@ -47,15 +48,6 @@ impl BTree<'_> {
         // pager.write_metadata(offset, degree);
         // pager.write_node(&root_node);
         btree
-    }
-
-    //TODO This is for testing so move it to a helper function in testing module below.
-    /// BTree constructor used only for testing
-    fn new_basic(degree: u32, file_name: &str) -> Self {
-        let sequence_length = 0;
-        let use_cache = false;
-        let cache_size = 0;
-        Self::new(sequence_length, degree, file_name, use_cache, cache_size)
     }
 
     // pub fn btree_search(given_root, key) -> Option<TreeObject> {
@@ -81,15 +73,15 @@ impl BTree<'_> {
     /**
      * @return Returns the number of keys in the BTree.
      */
-    pub fn get_size(&self) -> i32 {
-        0
+    pub fn get_size(&self) -> u32 {
+        self.number_of_nodes - 1
     }
 
     /**
      * @return The degree of the BTree.
      */
-    pub fn get_degree(&self) -> i32 {
-        0
+    pub fn get_degree(&self) -> u32 {
+        self.degree
     }
 
     /**
@@ -102,9 +94,9 @@ impl BTree<'_> {
     /**
      * @return The height of the BTree
      */
-    // pub fn get_height(&self) -> i32 {
-    //     self.height
-    // }
+    pub fn get_height(&self) -> u32 {
+        self.height
+    }
 
     /**
      * Deletes a key from the BTree. Not Implemented.
@@ -150,51 +142,26 @@ impl BTree<'_> {
 
 }
 
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    const test_file_name: &str = "Test_BTree.tmp";
+    const TEST_FILE_NAME: &str = "Test_BTree.tmp";
 
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
+    fn setup(){
+        todo!();
     }
 
-    /// Test simple creation of an empty BTree.
-    /// An empty BTree has 1 node with no keys and height of 0.
-    #[test]
-    fn test_btree_create() {
-        let b: BTree = BTree::new_basic();
-        assert_eq!(0, b.get_height());
-        assert_eq!(0, b.get_size());
-        assert_eq!(1, b.get_number_of_nodes());
+    fn teardown(){
+        std::fs::remove_file(TEST_FILE_NAME).unwrap();
     }
 
-    /// Test constructing a BTree with custom degree.
-    #[test]
-    fn test_btree_create_degree() {
-        let b: BTree = BTree::new();
-        assert_eq!(3, b.get_degree());
-    }
-
-    /// Test inserting a single key into an empty BTree.
-    /// BTree size now reflects the single key.
-    /// BTree structure is not validated in this test, as it would depend
-    /// on searching the tree or examining private members of BTree.
-    #[test]
-    fn test_insert_on_key() {
-        let mut b: BTree = BTree::new();
-        &b.insert(TreeObject { obj: 1 });
-        
-        assert_eq!(1, b.get_size());
-        assert_eq!(0, b.get_height());
-        // assert!()
+    /// BTree constructor used only for testing
+    fn btree(degree: u32, file_name: &str) -> BTree {
+        let sequence_length = 0;
+        let use_cache = false;
+        let cache_size = 0;
+        BTree::new(sequence_length, degree, file_name, use_cache, cache_size)
     }
 
     fn validate_btree_inserts(b: BTree, input_keys: Vec<i64>) -> bool {
@@ -231,6 +198,93 @@ mod tests {
             }
         }
         return true;
-
     }
+
+    /// Test simple creation of an empty BTree.
+    /// An empty BTree has 1 node with no keys and height of 0.
+    #[test]
+    fn test_btree_create() {
+        let b: BTree = btree(1, TEST_FILE_NAME);
+        assert_eq!(0, b.height);
+        assert_eq!(0, b.get_size());
+        assert_eq!(1, b.number_of_nodes);
+        teardown();
+    }
+
+    /// Test constructing a BTree with custom degree.
+    #[test]
+    fn test_btree_create_degree() {
+        let b: BTree = btree(3, TEST_FILE_NAME);
+        assert_eq!(3, b.get_degree());
+    }
+
+    /// Test inserting a single key into an empty BTree.
+    /// BTree size now reflects the single key.
+    /// BTree structure is not validated in this test, as it would depend
+    /// on searching the tree or examining private members of BTree.
+    #[test]
+    fn test_insert_one_key() {
+        let mut b: BTree = btree(2, TEST_FILE_NAME);
+        b.insert(TreeObject { obj: 1 });
+
+        assert_eq!(1, b.get_size());
+        assert_eq!(0, b.get_height());
+        // assert!()
+    }
+
+    /**
+     * Ten Keys (0 -> 9) added to a tree of degree 2, ensuring full nodes will be split.
+     *
+     */
+    #[test]
+    fn test_insert_10_keys() {
+        let mut b: BTree = btree(2, TEST_FILE_NAME);
+        //TODO Change this to array, instead of vector
+        let mut input: Vec<i64> = Vec::new();
+        for i in 0..10 {
+            input[i] = i as i64;
+            b.insert(TreeObject {obj: i as u32})
+        }
+
+        assert_eq!(10, b.get_size());
+        assert_eq!(2, b.get_height());
+        assert!(validate_btree_inserts(b, input))
+    }
+
+    /**
+     * Ten keys (10 -> 1) inserted into a BTree of degree 2.
+     */
+    #[test]
+    fn test_insert_10_keys_reverse_order() {
+        let mut b: BTree = btree(2, TEST_FILE_NAME);
+        //TODO Change this to array, instead of vector
+        let mut input: Vec<i64> = Vec::new();
+        for i in (0..10).rev() {
+            input[i] = i as i64;
+            b.insert(TreeObject {obj: i as u32})
+        }
+
+        assert_eq!(10, b.get_size());
+        assert_eq!(2, b.get_height());
+        assert!(validate_btree_inserts(b, input))
+    }
+
+    /**
+     * Tests that adding duplicate key values to the tree doesn't create
+     * duplicates within the tree.
+     */
+    #[test]
+    fn test_insert_10_duplicates() {
+        let mut b: BTree = btree(2, TEST_FILE_NAME);
+        //TODO Change this to array, instead of vector
+        let input = vec![1,1,1,1,1,1,1,1,1,1];
+        for _ in 0..10 {
+            b.insert(TreeObject {obj: 1})
+        }
+
+        assert_eq!(10, b.get_size());
+        assert_eq!(2, b.get_height());
+        assert!(validate_btree_inserts(b, input))
+    }
+
 }

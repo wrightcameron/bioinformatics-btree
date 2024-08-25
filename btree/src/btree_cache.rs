@@ -1,12 +1,12 @@
 
-struct BTreeCache<T> {
+pub struct BTreeCache<T> {
     cache: Vec<T>,
-    max_size: i32,
+    max_size: u32,
 }
 
 impl<T: std::cmp::PartialEq> BTreeCache<T>{
     //TODO  Handle if max size is set to 0 or less, should throw an error
-    pub fn new(max_size: i32) -> Self {
+    pub fn new(max_size: u32) -> Self {
         BTreeCache {
             cache: Vec::new(),
             max_size,
@@ -22,7 +22,7 @@ impl<T: std::cmp::PartialEq> BTreeCache<T>{
     }
 
     pub fn add_object(&mut self, obj: T) {
-        if self.cache.len() as i32 == self.max_size {
+        if self.cache.len() as u32 == self.max_size {
             self.cache.pop();
         }
         self.cache.insert(0, obj)
