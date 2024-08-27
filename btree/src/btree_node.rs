@@ -1,5 +1,5 @@
 pub struct Node<'a>{
-    pub number_keys: i32,
+    pub number_keys: u32,
     pub keys: Vec<TreeObject>,
     pub children_ptrs: Vec<&'a Node<'a>>,
     pub is_leaf: bool,
@@ -12,7 +12,7 @@ impl Default for Node<'_> {
         number_keys: 0,
         keys: Vec::new(),
         children_ptrs: Vec::new(),
-        is_leaf: false,
+        is_leaf: true,
         offset: 0
         }
     }

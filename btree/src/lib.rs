@@ -12,7 +12,7 @@ use crate::btree_node::*;
 // }
 
 pub struct BTree<'a> {
-    root_node: Option<Node<'a>>,
+    root_node: Node<'a>,
     degree: u32,
     number_of_nodes: u32,
     height: u32,
@@ -21,9 +21,9 @@ pub struct BTree<'a> {
 impl Default for BTree<'_> {
     fn default() -> Self { 
         BTree {
-            root_node: None,
+            root_node: Node::new(),
             degree: 0,
-            number_of_nodes: 0,
+            number_of_nodes: 1,
             height: 0,
         }
     }
@@ -34,15 +34,9 @@ impl BTree<'_> {
         let mut btree = BTree { ..Default::default() };
         btree.degree = degree;
         // Create Root node
-        let mut root_node: Node = Node::new();
-        root_node.is_leaf = true;
-        root_node.number_keys = 0;
-        root_node.offset = 12;
-        // Need to encapsulate the node in an option
-        btree.root_node = Some(root_node);
-        btree.number_of_nodes = 1;
+        btree.root_node.offset = 12;
+        // TODO What is the nodeSize, should be the same for all nodes
         // TODO Do we need some offset here?
-
         let output_file = format!("{file_name}.btree.data.{sequence_length}.{degree}");
         let pager = pager::Pager::new(file_name, use_cache, cache_size);
         // pager.write_metadata(offset, degree);
@@ -54,17 +48,34 @@ impl BTree<'_> {
 
     // }
 
-    // pub fn btree_split_child(given_root, index) {
-
-    // }
-
-    pub fn btree_insert(self, key: TreeObject){
-
+    pub fn btree_split_child(node: Node, index: u32) {
+        !unimplemented!();
     }
 
-    // pub fn btree_insert_non_full(given_root, key) {
+    pub fn btree_insert(&self, key: TreeObject){
+        if self.root_node.number_keys == ((2 * self.degree) - 1) {
+            let old_root = self.root_node;
+            // file_cursor += node_size; this should be done in the pager
+            let mut node = Node::new();
+            node.is_leaf = false;
+            node.number_keys = 0;
+            node.add_child(old_root.offset);
+            node.offset = file_cursor;
+            self.root_node = node;
+            // Write above to file
+            self.pager.write(self.root_node);
+            self.pager.write(old_root);
+            self.pager.write_metadata(self.root_node.offset, degree);
+            BTree::btree_split_child(node, 1);
+            BTree::btree_insert_non_full(node, key)
+        } else {
+            BTree::btree_insert_non_full(&self.root_node, key)
+        }
+    }
 
-    // }
+    pub fn btree_insert_non_full(node: &Node, key: TreeObject) {
+
+    }
 
     // pub fn in_order_traversal(root, writer, sequence_length){
 

@@ -1,11 +1,14 @@
 use std::fs::File;
 use std::path::Path;
-use std::io::{BufReader, BufWriter, Read, Write};
+use std::io::{BufReader, BufWriter, Read, Seek, Write};
 use crate::btree_node::Node;
 use crate::btree_cache::BTreeCache;
 
+const DISK_BLOCK_SIZE: u32 = 4096;
+
 pub struct Pager {
     file: File,
+    file_cursor: u32,
     cache: Option<BTreeCache<u32>>,
 
 }
@@ -29,11 +32,22 @@ impl Pager {
         write_buffer.write(&degree.to_be_bytes());
     }
 
+    pub fn write(&self, node: Node) {
+        let mut write_buffer = BufWriter::new(&self.file);
+        write_buffer.seek(std::io::SeekFrom::Start((node.offset as u64)));
+        let mut remaining_block_space = DISK_BLOCK_SIZE;
+        
+    }
+
     pub fn write_root(&self, root_node: Node) {
 
     }
 
     pub fn write_node(&self, node: Node) {
+
+    }
+
+    pub fn rewrite_node(&self, node: Node) {
 
     }
 

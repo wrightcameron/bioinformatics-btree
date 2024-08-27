@@ -1,4 +1,5 @@
 use clap::Parser;
+use std::path::Path;
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
@@ -48,6 +49,6 @@ fn main() {
         println!("{queryfile} not found.");
         std::process::exit(1);
     }
-    todo!
+    todo!();
     println!("Hello, world!");
 }
