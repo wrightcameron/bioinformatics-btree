@@ -1,5 +1,6 @@
 use std::fs::File;
 use std::path::Path;
+use std::fs::OpenOptions;
 use std::io::{BufReader, BufWriter, Read, Seek, Write};
 use std::io::SeekFrom;
 use crate::btree_node::Node;
@@ -54,8 +55,8 @@ impl Pager {
 
     pub fn write(&mut self, node: &Node) {
         let path = Path::new(&self.file_name);
-        let file = File::create(path).unwrap();
-        let remaining_block_space = DISK_BLOCK_SIZE;
+        let file = OpenOptions::new().append(true).create(true).open(path).unwrap();
+        // OpenOptions::new().append(true)
         let mut write_buffer = BufWriter::new(file);
         // Write node to disk
         // Offset
@@ -152,18 +153,14 @@ mod tests {
 
     const TEST_FILE_NAME: &str = "Test_BTree.tmp";
     
-    fn setup(file: &str){
+    fn delete_file(file: &str){
         std::fs::remove_file(file).ok();
-    }
-
-    fn teardown(){
-        std::fs::remove_file(TEST_FILE_NAME).ok();
     }
 
     #[test]
     fn test_pager_metadata() {
         let file_name = "test_pager_metadata.tmp";
-        setup(file_name);
+        delete_file(file_name);
         let mut pager = Pager::new(file_name, false, 0).unwrap();
         let expected_root_offset = 10;
         let expected_degree = 10;
@@ -171,21 +168,37 @@ mod tests {
         let (actual_root_offset, actual_degree) = pager.read_metadata();
         assert_eq!(expected_root_offset, actual_root_offset);
         assert_eq!(expected_degree, actual_degree);
-        setup(file_name);
+        delete_file(file_name);
     }
 
         #[test]
         fn test_pager_write_read_1_node() {
             let file_name = "test_pager_write_read_1_node.tmp";
-            setup(file_name);
+            delete_file(file_name);
             let mut pager = Pager::new(file_name, false, 0).unwrap();
-            let mut expected_node = Node::new();
+            let expected_node = Node::new();
             pager.write(&expected_node);
             let actual_node = pager.read(expected_node.offset);
-            assert_eq!(expected_node.number_keys, actual_node.number_keys);
-            assert_eq!(expected_node.is_leaf, actual_node.is_leaf);
-            assert_eq!(expected_node.offset, actual_node.offset);
-            setup(file_name);
+            assert_eq!(expected_node, actual_node);
+            delete_file(file_name);
+        }
+
+        #[test]
+        fn test_pager_write_read_2_node() {
+            let file_name = "test_pager_write_read_2_node.tmp";
+            delete_file(file_name);
+            let mut pager = Pager::new(file_name, false, 0).unwrap();
+            let expected_node_1 = Node::new();
+            pager.write(&expected_node_1);
+            let mut expected_node_2 = Node::new();
+            expected_node_2.offset = pager.file_cursor;
+            pager.write(&expected_node_2);
+
+            let actual_node_1 = pager.read(expected_node_1.offset);
+            assert_eq!(expected_node_1, actual_node_1);
+            let actual_node_2 = pager.read(expected_node_2.offset);
+            assert_eq!(expected_node_2, actual_node_2);
+            delete_file(file_name);
         }
 
 }

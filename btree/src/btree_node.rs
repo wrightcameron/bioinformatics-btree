@@ -1,3 +1,4 @@
+#[derive(Debug)]
 pub struct Node{
     pub number_keys: u32,
     pub keys: Vec<TreeObject>,
@@ -18,6 +19,16 @@ impl Default for Node {
     }
 }
 
+impl PartialEq for Node {
+    fn eq(&self, other: &Self) -> bool {
+        self.number_keys == other.number_keys &&
+        self.is_leaf == other.is_leaf &&
+        self.offset == other.offset &&
+        self.keys == other.keys &&
+        self.children_ptrs == other.children_ptrs
+    }
+}
+
 impl Node {
     pub fn new() -> Node {
         Node {..Default::default()}
@@ -28,9 +39,17 @@ impl Node {
     }
 }
 
+#[derive(Debug)]
 pub struct TreeObject {
     pub sequence: u32,
     pub frequency: u32,
+}
+
+impl PartialEq for TreeObject {
+    fn eq(&self, other: &Self) -> bool {
+        self.sequence == other.sequence &&
+        self.frequency == other.frequency
+    }
 }
 
 impl TreeObject{
