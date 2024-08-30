@@ -35,6 +35,7 @@ impl Pager {
         write_buffer.write(&root_offset.to_be_bytes()).unwrap();
         write_buffer.write(&degree.to_be_bytes()).unwrap();
         self.file_cursor += 8;
+        write_buffer.flush().unwrap();
     }
 
     pub fn read_metadata(&mut self) -> (u32, u32) {
@@ -51,10 +52,10 @@ impl Pager {
         (root_offset, degree)
     }
 
-    pub fn write(&mut self, node: Node) {
+    pub fn write(&mut self, node: &Node) {
         let path = Path::new(&self.file_name);
         let file = File::create(path).unwrap();
-        let _remaining_block_space = DISK_BLOCK_SIZE;
+        let remaining_block_space = DISK_BLOCK_SIZE;
         let mut write_buffer = BufWriter::new(file);
         // Write node to disk
         // Offset
@@ -63,27 +64,28 @@ impl Pager {
         // is Leaf Node
         // Don't see a way to convert bool to u8, so this will do
         if node.is_leaf {
-            write_buffer.write(&[1,1]).unwrap();
+            write_buffer.write(&[1;1]).unwrap();
         } else {
-            write_buffer.write(&[0,1]).unwrap();
+            write_buffer.write(&[0;1]).unwrap();
         }
         // Number of Keys
         write_buffer.write(&node.number_keys.to_be_bytes()).unwrap();
         // Keys
-        for i in node.keys{
+        for i in &node.keys{
             write_buffer.write(&i.sequence.to_be_bytes()).unwrap();
             write_buffer.write(&i.frequency.to_be_bytes()).unwrap();
             self.file_cursor += 8;
         }
         // Children Offsets
-        for i in node.children_ptrs {
+        for i in &node.children_ptrs {
             write_buffer.write(&i.to_be_bytes()).unwrap();
             self.file_cursor += 4;
         }
         self.file_cursor += 9;
+        write_buffer.flush().unwrap();
     }
 
-    pub fn read(&mut self, offset: u32) {
+    pub fn read(&mut self, offset: u32) -> Node {
         let path = Path::new(&self.file_name);
         let mut file = File::open(path).unwrap();
         let mut buf = [0u8; 4];
@@ -113,8 +115,12 @@ impl Pager {
             file.read_exact(&mut buf).unwrap();
             children_offsets.push(u32::from_be_bytes(buf));
         }
-        
-
+        Node {number_keys: number_of_keys, 
+            keys, 
+            children_ptrs: children_offsets, 
+            is_leaf, 
+            offset
+        }
     }
 
     pub fn write_root(&self, root_node: Node) {
@@ -145,9 +151,9 @@ mod tests {
     use super::*;
 
     const TEST_FILE_NAME: &str = "Test_BTree.tmp";
-
-    fn setup(){
-        std::fs::remove_file(TEST_FILE_NAME).ok();
+    
+    fn setup(file: &str){
+        std::fs::remove_file(file).ok();
     }
 
     fn teardown(){
@@ -156,23 +162,30 @@ mod tests {
 
     #[test]
     fn test_pager_metadata() {
-        setup();
-        let mut pager = Pager::new(TEST_FILE_NAME, false, 0).unwrap();
+        let file_name = "test_pager_metadata.tmp";
+        setup(file_name);
+        let mut pager = Pager::new(file_name, false, 0).unwrap();
         let expected_root_offset = 10;
         let expected_degree = 10;
         pager.write_metadata(expected_root_offset, expected_degree);
         let (actual_root_offset, actual_degree) = pager.read_metadata();
         assert_eq!(expected_root_offset, actual_root_offset);
         assert_eq!(expected_degree, actual_degree);
-        teardown();
+        setup(file_name);
     }
 
-    // #[test]
-    // fn test_pager_write_read_1_node() {
-    //     let pager = Pager::new(TEST_FILE_NAME, false, 0).unwrap();
-    //     let node = Node::new();
-    //     pager.write(node);
-
-    // }
+        #[test]
+        fn test_pager_write_read_1_node() {
+            let file_name = "test_pager_write_read_1_node.tmp";
+            setup(file_name);
+            let mut pager = Pager::new(file_name, false, 0).unwrap();
+            let mut expected_node = Node::new();
+            pager.write(&expected_node);
+            let actual_node = pager.read(expected_node.offset);
+            assert_eq!(expected_node.number_keys, actual_node.number_keys);
+            assert_eq!(expected_node.is_leaf, actual_node.is_leaf);
+            assert_eq!(expected_node.offset, actual_node.offset);
+            setup(file_name);
+        }
 
 }
