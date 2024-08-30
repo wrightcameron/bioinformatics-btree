@@ -5,13 +5,6 @@ mod btree_node;
 use crate::pager::Pager;
 use crate::btree_node::*;
 
-// enum GeneBase {
-//     A,
-//     T,
-//     C,
-//     G,
-// }
-
 pub struct BTree {
     root_node: Node,
     degree: u32,
@@ -45,26 +38,26 @@ impl BTree {
         !unimplemented!();
     }
 
-    // pub fn btree_insert(&self, key: TreeObject){
-    //     if self.root_node.number_keys == ((2 * self.degree) - 1) {
-    //         let old_root = self.root_node;
-    //         // file_cursor += node_size; this should be done in the pager
-    //         let mut node = Node::new();
-    //         node.is_leaf = false;
-    //         node.number_keys = 0;
-    //         node.add_child_ptr(old_root.offset);
-    //         node.offset = self.pager.file_cursor;
-    //         self.root_node = node;
-    //         // Write above to file
-    //         self.pager.write(self.root_node);
-    //         self.pager.write(old_root);
-    //         self.pager.write_metadata(self.root_node.offset, self.degree);
-    //         BTree::btree_split_child(node, 1);
-    //         BTree::btree_insert_non_full(node, key)
-    //     } else {
-    //         BTree::btree_insert_non_full(self.root_node, key)
-    //     }
-    // }
+    pub fn btree_insert(&self, key: TreeObject){
+        if self.root_node.number_keys == ((2 * self.degree) - 1) {
+            let old_root = self.root_node;
+            // file_cursor += node_size; this should be done in the pager
+            let mut node = Node::new();
+            node.is_leaf = false;
+            node.number_keys = 0;
+            node.add_child_ptr(old_root.offset);
+            node.offset = self.pager.file_cursor;
+            self.root_node = node;
+            // Write above to file
+            self.pager.write(self.root_node);
+            self.pager.write(old_root);
+            self.pager.write_metadata(self.root_node.offset, self.degree);
+            BTree::btree_split_child(node, 1);
+            BTree::btree_insert_non_full(node, key)
+        } else {
+            BTree::btree_insert_non_full(self.root_node, key)
+        }
+    }
 
     pub fn btree_insert_non_full(node: Node, key: TreeObject) {
 

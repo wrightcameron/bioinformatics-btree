@@ -1,28 +1,25 @@
 #[derive(Debug)]
 pub struct Node{
-    pub number_keys: u32,
+    pub max_keys: u32,
+    pub offset: u32,
     pub keys: Vec<TreeObject>,
     pub children_ptrs: Vec<u32>,
-    pub is_leaf: bool,
-    pub offset: u32,
 }
 
 impl Default for Node {
     fn default() -> Self {
-        Node { 
-        number_keys: 0,
+        Node {
+        max_keys: 0,
+        offset: 0,
         keys: Vec::new(),
         children_ptrs: Vec::new(),
-        is_leaf: true,
-        offset: 0
         }
     }
 }
 
 impl PartialEq for Node {
     fn eq(&self, other: &Self) -> bool {
-        self.number_keys == other.number_keys &&
-        self.is_leaf == other.is_leaf &&
+        self.max_keys == other.max_keys &&
         self.offset == other.offset &&
         self.keys == other.keys &&
         self.children_ptrs == other.children_ptrs
@@ -36,6 +33,14 @@ impl Node {
 
     pub fn add_child_ptr(&mut self, offset: u32) {
         self.children_ptrs.push(offset);
+    }
+
+    pub fn is_leaf(&self) -> bool {
+        self.children_ptrs.len() == 0
+    }
+
+    pub fn number_of_keys(&self) -> u32 {
+        self.keys.len() as u32
     }
 }
 

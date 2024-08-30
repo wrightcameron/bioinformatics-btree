@@ -64,13 +64,13 @@ impl Pager {
         write_buffer.write(&node.offset.to_be_bytes()).unwrap();
         // is Leaf Node
         // Don't see a way to convert bool to u8, so this will do
-        if node.is_leaf {
+        if node.is_leaf() {
             write_buffer.write(&[1;1]).unwrap();
         } else {
             write_buffer.write(&[0;1]).unwrap();
         }
         // Number of Keys
-        write_buffer.write(&node.number_keys.to_be_bytes()).unwrap();
+        write_buffer.write(&node.number_of_keys().to_be_bytes()).unwrap();
         // Keys
         for i in &node.keys{
             write_buffer.write(&i.sequence.to_be_bytes()).unwrap();
@@ -112,28 +112,14 @@ impl Pager {
         }
         // Children Offsets
         let mut children_offsets: Vec<u32> = Vec::new();
-        for i in 0..number_of_keys {
+        for _ in 0..number_of_keys {
             file.read_exact(&mut buf).unwrap();
             children_offsets.push(u32::from_be_bytes(buf));
         }
-        Node {number_keys: number_of_keys, 
-            keys, 
-            children_ptrs: children_offsets, 
-            is_leaf, 
+        Node {keys, 
+            children_ptrs: children_offsets,
             offset
         }
-    }
-
-    pub fn write_root(&self, root_node: Node) {
-
-    }
-
-    pub fn write_node(&self, node: Node) {
-
-    }
-
-    pub fn rewrite_node(&self, node: Node) {
-
     }
 
     fn get_root_offset(&self) -> i32 {
@@ -149,6 +135,7 @@ impl Pager {
 
 #[cfg(test)]
 mod tests {
+    use rand::Rng;
     use super::*;
 
     const TEST_FILE_NAME: &str = "Test_BTree.tmp";
@@ -156,6 +143,10 @@ mod tests {
     fn delete_file(file: &str){
         std::fs::remove_file(file).ok();
     }
+
+    // fn gen_random_node() -> Node {
+    //     Node {}
+    // }
 
     #[test]
     fn test_pager_metadata() {
