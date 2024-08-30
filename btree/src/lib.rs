@@ -2,6 +2,7 @@ mod btree_cache;
 mod pager;
 mod btree_node;
 
+use crate::pager::Pager;
 use crate::btree_node::*;
 
 // enum GeneBase {
@@ -11,34 +12,26 @@ use crate::btree_node::*;
 //     G,
 // }
 
-pub struct BTree<'a> {
-    root_node: Node<'a>,
+pub struct BTree {
+    root_node: Node,
     degree: u32,
     number_of_nodes: u32,
     height: u32,
+    pager: Pager,
 }
 
-impl Default for BTree<'_> {
-    fn default() -> Self { 
-        BTree {
+impl BTree {
+    pub fn new(sequence_length: u32, degree: u32, file_name: &str, use_cache: bool, cache_size: u32) -> BTree {
+        let output_file = format!("{file_name}.btree.data.{sequence_length}.{degree}");
+        let mut btree = BTree {
             root_node: Node::new(),
-            degree: 0,
+            degree,
             number_of_nodes: 1,
             height: 0,
-        }
-    }
-}
-
-impl BTree<'_> {
-    pub fn new(sequence_length: u32, degree: u32, file_name: &str, use_cache: bool, cache_size: u32) -> BTree<'static> {
-        let mut btree = BTree { ..Default::default() };
-        btree.degree = degree;
+            pager: Pager::new(&output_file, use_cache, cache_size).unwrap(),
+        };
         // Create Root node
         btree.root_node.offset = 12;
-        // TODO What is the nodeSize, should be the same for all nodes
-        // TODO Do we need some offset here?
-        let output_file = format!("{file_name}.btree.data.{sequence_length}.{degree}");
-        let pager = pager::Pager::new(file_name, use_cache, cache_size);
         // pager.write_metadata(offset, degree);
         // pager.write_node(&root_node);
         btree
@@ -52,28 +45,28 @@ impl BTree<'_> {
         !unimplemented!();
     }
 
-    pub fn btree_insert(&self, key: TreeObject){
-        if self.root_node.number_keys == ((2 * self.degree) - 1) {
-            let old_root = self.root_node;
-            // file_cursor += node_size; this should be done in the pager
-            let mut node = Node::new();
-            node.is_leaf = false;
-            node.number_keys = 0;
-            node.add_child(old_root.offset);
-            node.offset = file_cursor;
-            self.root_node = node;
-            // Write above to file
-            self.pager.write(self.root_node);
-            self.pager.write(old_root);
-            self.pager.write_metadata(self.root_node.offset, degree);
-            BTree::btree_split_child(node, 1);
-            BTree::btree_insert_non_full(node, key)
-        } else {
-            BTree::btree_insert_non_full(&self.root_node, key)
-        }
-    }
+    // pub fn btree_insert(&self, key: TreeObject){
+    //     if self.root_node.number_keys == ((2 * self.degree) - 1) {
+    //         let old_root = self.root_node;
+    //         // file_cursor += node_size; this should be done in the pager
+    //         let mut node = Node::new();
+    //         node.is_leaf = false;
+    //         node.number_keys = 0;
+    //         node.add_child_ptr(old_root.offset);
+    //         node.offset = self.pager.file_cursor;
+    //         self.root_node = node;
+    //         // Write above to file
+    //         self.pager.write(self.root_node);
+    //         self.pager.write(old_root);
+    //         self.pager.write_metadata(self.root_node.offset, self.degree);
+    //         BTree::btree_split_child(node, 1);
+    //         BTree::btree_insert_non_full(node, key)
+    //     } else {
+    //         BTree::btree_insert_non_full(self.root_node, key)
+    //     }
+    // }
 
-    pub fn btree_insert_non_full(node: &Node, key: TreeObject) {
+    pub fn btree_insert_non_full(node: Node, key: TreeObject) {
 
     }
 
@@ -160,7 +153,7 @@ mod tests {
     const TEST_FILE_NAME: &str = "Test_BTree.tmp";
 
     fn setup(){
-        todo!();
+        std::fs::remove_file(TEST_FILE_NAME).unwrap();
     }
 
     fn teardown(){
@@ -236,7 +229,7 @@ mod tests {
     #[test]
     fn test_insert_one_key() {
         let mut b: BTree = btree(2, TEST_FILE_NAME);
-        b.insert(TreeObject { obj: 1 });
+        b.insert(TreeObject { sequence: 1, frequency: 0 });
 
         assert_eq!(1, b.get_size());
         assert_eq!(0, b.get_height());
@@ -254,7 +247,7 @@ mod tests {
         let mut input: Vec<i64> = Vec::new();
         for i in 0..10 {
             input[i] = i as i64;
-            b.insert(TreeObject {obj: i as u32})
+            b.insert(TreeObject {sequence: i as u32, frequency: 0 })
         }
 
         assert_eq!(10, b.get_size());
@@ -272,7 +265,7 @@ mod tests {
         let mut input: Vec<i64> = Vec::new();
         for i in (0..10).rev() {
             input[i] = i as i64;
-            b.insert(TreeObject {obj: i as u32})
+            b.insert(TreeObject {sequence: i as u32, frequency: 0 })
         }
 
         assert_eq!(10, b.get_size());
@@ -290,7 +283,7 @@ mod tests {
         //TODO Change this to array, instead of vector
         let input = vec![1,1,1,1,1,1,1,1,1,1];
         for _ in 0..10 {
-            b.insert(TreeObject {obj: 1})
+            b.insert(TreeObject {sequence: 1, frequency: 0 })
         }
 
         assert_eq!(10, b.get_size());
