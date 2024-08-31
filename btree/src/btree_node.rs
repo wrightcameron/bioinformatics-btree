@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 #[derive(Debug)]
 pub struct Node{
     pub max_keys: u32,
@@ -52,8 +53,13 @@ pub struct TreeObject {
 
 impl PartialEq for TreeObject {
     fn eq(&self, other: &Self) -> bool {
-        self.sequence == other.sequence &&
-        self.frequency == other.frequency
+        self.sequence == other.sequence
+    }
+}
+
+impl PartialOrd for TreeObject {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.sequence.partial_cmp(&other.sequence)
     }
 }
 

@@ -30,27 +30,56 @@ impl BTree {
         btree
     }
 
-    // pub fn btree_search(given_root, key) -> Option<TreeObject> {
-
-    // }
-
-    pub fn btree_split_child(node: Node, index: u32) {
-        !unimplemented!();
+    /// Searches the BTree for the TreeObject given as an argument
+    pub fn btree_search(&mut self, given_root: Node, key: TreeObject) -> Option<&TreeObject> {
+        let mut index = 1;
+        while index <= given_root.keys.len() && key > *given_root.keys.get(index).unwrap() {
+            index += 1;
+        }
+        if index <= given_root.keys.len() && key == *given_root.keys.get(index).unwrap() {
+            return Some(given_root.keys.get(index).unwrap());
+        } else if given_root.is_leaf() {
+            return None
+        } else {
+            let child = self.pager.read(*given_root.children_ptrs.get(index).unwrap());
+            return self.btree_search(child, key);
+        }
     }
 
-    pub fn btree_insert(&self, key: TreeObject){
-        if self.root_node.number_keys == ((2 * self.degree) - 1) {
+    /// Splits the tree when the degree of a node gets to size of degree
+    pub fn btree_split_child(&self, given_root: Node, index: u32) {
+        let z: Node = Node::new();
+        let y: Node = self.pager.read(given_root.children_ptrs.get(index));
+        for i in ((self.degree - 1)..1).rev() {
+            z.keys.push(y.keys.pop());
+        }
+        z.max_keys = self.degree - 1;
+        if ! y.is_leaf() {
+            for i in 1..self.degree {
+                z.keys.push( y.keys.pop() )
+            }
+        }
+        given_root.children_ptrs.push()
+        given_root.keys.push();
+        y.max_keys = self.degree - 1;
+        self.pager.write(&y);
+        self.pager.write(&z);
+        self.pager.write(&given_root);
+    }
+
+    /// Inserts a node into the BTree
+    pub fn btree_insert(&mut self, key: TreeObject){
+        if self.root_node.max_keys == ((2 * self.degree) - 1) {
             let old_root = self.root_node;
             // file_cursor += node_size; this should be done in the pager
             let mut node = Node::new();
-            node.is_leaf = false;
-            node.number_keys = 0;
+            node.max_keys = self.root_node.max_keys;
             node.add_child_ptr(old_root.offset);
             node.offset = self.pager.file_cursor;
             self.root_node = node;
             // Write above to file
-            self.pager.write(self.root_node);
-            self.pager.write(old_root);
+            self.pager.write(&self.root_node);
+            self.pager.write(&old_root);
             self.pager.write_metadata(self.root_node.offset, self.degree);
             BTree::btree_split_child(node, 1);
             BTree::btree_insert_non_full(node, key)
@@ -59,8 +88,14 @@ impl BTree {
         }
     }
 
-    pub fn btree_insert_non_full(node: Node, key: TreeObject) {
-
+    /// Inserts an object into the BTree, when the BTree is not full.
+    pub fn btree_insert_non_full(given_root: Node, key: TreeObject) {
+        let index = given_root.keys.len();
+        if given_root.is_leaf() {
+            while index >= 1 && key < given_root.keys.get(index) {
+                index -= 1;
+            }
+        }
     }
 
     // pub fn in_order_traversal(root, writer, sequence_length){
