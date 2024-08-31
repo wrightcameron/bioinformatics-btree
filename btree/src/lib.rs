@@ -4,6 +4,7 @@ mod btree_node;
 
 use crate::pager::Pager;
 use crate::btree_node::*;
+use std::rc::Rc;
 
 pub struct BTree {
     root_node: Node,
@@ -24,20 +25,20 @@ impl BTree {
             pager: Pager::new(&output_file, use_cache, cache_size).unwrap(),
         };
         // Create Root node
-        btree.root_node.offset = 12;
-        // pager.write_metadata(offset, degree);
-        // pager.write_node(&root_node);
+        btree.root_node.offset = btree.pager.file_cursor;
+        btree.pager.write_metadata(btree.root_node.offset, degree);
+        btree.pager.write(&btree.root_node);
         btree
     }
 
     /// Searches the BTree for the TreeObject given as an argument
-    pub fn btree_search(&mut self, given_root: Node, key: TreeObject) -> Option<&TreeObject> {
+    pub fn btree_search(&mut self, given_root: Node, key: TreeObject) -> Option<TreeObject> {
         let mut index = 1;
         while index <= given_root.keys.len() && key > *given_root.keys.get(index).unwrap() {
             index += 1;
         }
         if index <= given_root.keys.len() && key == *given_root.keys.get(index).unwrap() {
-            return Some(given_root.keys.get(index).unwrap());
+            return Some(given_root.keys.get(index).unwrap().clone());
         } else if given_root.is_leaf() {
             return None
         } else {
@@ -47,33 +48,34 @@ impl BTree {
     }
 
     /// Splits the tree when the degree of a node gets to size of degree
-    pub fn btree_split_child(&self, given_root: Node, index: u32) {
-        let z: Node = Node::new();
-        let y: Node = self.pager.read(given_root.children_ptrs.get(index));
-        for i in ((self.degree - 1)..1).rev() {
-            z.keys.push(y.keys.pop());
+    pub fn btree_split_child(&mut self, mut given_root: Node, index: u32) {
+        let mut z: Node = Node::new();
+        let mut y: Node = self.pager.read(*given_root.children_ptrs.get(index as usize).unwrap());
+        for i in 1..(self.degree - 1) {
+            z.keys.insert(i as usize - 1, y.keys.remove(self.degree as usize + 1 ));
         }
         z.max_keys = self.degree - 1;
         if ! y.is_leaf() {
             for i in 1..self.degree {
-                z.keys.push( y.keys.pop() )
+                z.children_ptrs.insert( i as usize - 1, y.children_ptrs.remove(self.degree as usize + 1 ))
             }
         }
-        given_root.children_ptrs.push()
-        given_root.keys.push();
+        given_root.children_ptrs.insert(index as usize + 1, z.offset );
+        given_root.keys.insert(index as usize, y.keys.remove(self.degree as usize));
         y.max_keys = self.degree - 1;
         self.pager.write(&y);
+        z.offset = self.pager.file_cursor;
         self.pager.write(&z);
         self.pager.write(&given_root);
     }
 
     /// Inserts a node into the BTree
-    pub fn btree_insert(&mut self, key: TreeObject){
-        if self.root_node.max_keys == ((2 * self.degree) - 1) {
+    pub fn btree_insert(mut self, key: TreeObject){
+        if self.root_node.keys.len() as u32 == ((2 * self.degree) - 1) {
             let old_root = self.root_node;
             // file_cursor += node_size; this should be done in the pager
             let mut node = Node::new();
-            node.max_keys = self.root_node.max_keys;
+            node.max_keys = old_root.max_keys;
             node.add_child_ptr(old_root.offset);
             node.offset = self.pager.file_cursor;
             self.root_node = node;
@@ -81,20 +83,45 @@ impl BTree {
             self.pager.write(&self.root_node);
             self.pager.write(&old_root);
             self.pager.write_metadata(self.root_node.offset, self.degree);
-            BTree::btree_split_child(node, 1);
-            BTree::btree_insert_non_full(node, key)
+            self.btree_split_child(self.root_node, 1);
+            self.btree_insert_non_full(self.root_node, key)
         } else {
-            BTree::btree_insert_non_full(self.root_node, key)
+            self.btree_insert_non_full(self.root_node, key)
         }
     }
 
     /// Inserts an object into the BTree, when the BTree is not full.
-    pub fn btree_insert_non_full(given_root: Node, key: TreeObject) {
-        let index = given_root.keys.len();
+    pub fn btree_insert_non_full(&mut self, mut given_root: Node, key: TreeObject) {
+        let mut index = given_root.keys.len();
         if given_root.is_leaf() {
-            while index >= 1 && key < given_root.keys.get(index) {
+            while index >= 1 && key < *given_root.keys.get(index).unwrap() {
                 index -= 1;
             }
+            if index >= 1 && key == *given_root.keys.get(index).unwrap() {
+                given_root.keys.get_mut(index).unwrap().increase_frequency();
+            } else {
+                given_root.keys.insert(index + 1, key);
+            }
+            self.pager.write(&given_root);
+        } else {
+            while index >= 1 && key < *given_root.keys.get(index).unwrap() {
+                index -= 1;
+            }
+            if index >= 1 && key == *given_root.keys.get(index).unwrap() {
+                given_root.keys.get_mut(index).unwrap().increase_frequency();
+                self.pager.write(&given_root);
+            } else {
+                index += 1;
+                let child: Node = self.pager.read(*given_root.children_ptrs.get(index).unwrap());
+                if child.keys.len() == (2 * self.degree as usize) - 1 {
+                    self.btree_split_child(given_root, index as u32);
+                    if key > *given_root.keys.get(index).unwrap() {
+                        index += 1;
+                    }
+                }
+                self.btree_insert_non_full(self.pager.read(*given_root.children_ptrs.get(index).unwrap()), key)
+            }
+
         }
     }
 
@@ -236,7 +263,8 @@ mod tests {
     /// An empty BTree has 1 node with no keys and height of 0.
     #[test]
     fn test_btree_create() {
-        let b: BTree = btree(1, TEST_FILE_NAME);
+        let file_name = "test_btree_create.tmp";
+        let b: BTree = btree(1, file_name);
         assert_eq!(0, b.height);
         assert_eq!(0, b.get_size());
         assert_eq!(1, b.number_of_nodes);
@@ -246,7 +274,8 @@ mod tests {
     /// Test constructing a BTree with custom degree.
     #[test]
     fn test_btree_create_degree() {
-        let b: BTree = btree(3, TEST_FILE_NAME);
+        let file_name = "test_btree_create_degree.tmp";
+        let b: BTree = btree(3, file_name);
         assert_eq!(3, b.get_degree());
     }
 
@@ -256,7 +285,8 @@ mod tests {
     /// on searching the tree or examining private members of BTree.
     #[test]
     fn test_insert_one_key() {
-        let mut b: BTree = btree(2, TEST_FILE_NAME);
+        let file_name = "test_insert_one_key.tmp";
+        let mut b: BTree = btree(2, file_name);
         b.insert(TreeObject { sequence: 1, frequency: 0 });
 
         assert_eq!(1, b.get_size());
@@ -270,7 +300,8 @@ mod tests {
      */
     #[test]
     fn test_insert_10_keys() {
-        let mut b: BTree = btree(2, TEST_FILE_NAME);
+        let file_name = "test_insert_10_keys.tmp";
+        let mut b: BTree = btree(2, file_name);
         //TODO Change this to array, instead of vector
         let mut input: Vec<i64> = Vec::new();
         for i in 0..10 {
@@ -288,7 +319,8 @@ mod tests {
      */
     #[test]
     fn test_insert_10_keys_reverse_order() {
-        let mut b: BTree = btree(2, TEST_FILE_NAME);
+        let file_name = "test_insert_10_keys_reverse_order.tmp";
+        let mut b: BTree = btree(2, file_name);
         //TODO Change this to array, instead of vector
         let mut input: Vec<i64> = Vec::new();
         for i in (0..10).rev() {
@@ -307,7 +339,8 @@ mod tests {
      */
     #[test]
     fn test_insert_10_duplicates() {
-        let mut b: BTree = btree(2, TEST_FILE_NAME);
+        let file_name = "test_insert_10_duplicates.tmp";
+        let mut b: BTree = btree(2, file_name);
         //TODO Change this to array, instead of vector
         let input = vec![1,1,1,1,1,1,1,1,1,1];
         for _ in 0..10 {

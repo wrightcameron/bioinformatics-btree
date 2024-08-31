@@ -45,7 +45,7 @@ impl Node {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct TreeObject {
     pub sequence: u32,
     pub frequency: u32,
@@ -66,5 +66,9 @@ impl PartialOrd for TreeObject {
 impl TreeObject{
     pub fn new(sequence: u32, frequency: u32) -> Self {
         TreeObject {sequence, frequency}
+    }
+
+    pub fn increase_frequency(&mut self) {
+        self.frequency += 1;
     }
 }

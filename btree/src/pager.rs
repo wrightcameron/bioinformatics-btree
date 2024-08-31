@@ -116,7 +116,8 @@ impl Pager {
             file.read_exact(&mut buf).unwrap();
             children_offsets.push(u32::from_be_bytes(buf));
         }
-        Node {keys, 
+        Node {keys,
+            max_keys: 0,  // TODO Why does a node care about max keys, couln't this be only known by the btree?
             children_ptrs: children_offsets,
             offset
         }
