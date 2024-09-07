@@ -49,6 +49,31 @@ impl BTree {
         }
     }
 
+
+    pub fn btree_in_order_traversal(&self, node_offset_option: Option<u32>, sorted_keys: Vec<TreeObject>) {
+        if let Some(node_offset) = node_offset_option {
+            let node = self.pager.read(node_offset);
+            for i in 0..node.children_ptrs.len() {
+                self.btree_in_order_traversal(node.children_ptrs.get(i), sorted_keys);
+                if i < node.keys.len() {
+                    sorted_keys.push(node.keys.get(i));
+                }
+            }
+        }
+    }
+    // public void InOrderTraversal(BTreeNode<T1, T2> node, List<KeyValuePair<T1, T2>> sortedKeys)
+    //     {
+    //         if (node != null)
+    //         {
+    //             for (int i = 0; i < node.Children.Count; i++)
+    //             {
+    //                 InOrderTraversal(node.Children[i], sortedKeys);
+    //                 if (i < node.KeyValues.Count)
+    //                     sortedKeys.Add(node.KeyValues[i]);
+    //             }
+    //         }
+    //     }
+
     /// Splits the tree when the degree of a node gets to size of degree
     pub fn btree_split_child(&mut self, given_root: &mut Node, index: u32) {
         let mut y: Node = self.pager.read(*given_root.children_ptrs.get(index as usize).unwrap());
@@ -230,10 +255,19 @@ impl BTree {
     //     T
     // }
 
-    pub fn get_sorted_key_array(&self) -> Vec<i64>{
-        Vec::new()
-    }
+    // pub fn get_sorted_key_array(&self) -> Vec<i64>{
+    //     let keys: Vec<TreeObject> = self.iter();
+    //     Vec::new()
+    // }
 
+}
+
+impl Iterator for BTree {
+    type Item = TreeObject;
+    
+    fn next(&mut self) -> Option<Self::Item> {
+        Some(TreeObject::new(1, 1))
+    }
 }
 
 #[cfg(test)]
@@ -345,7 +379,7 @@ mod tests {
         b.btree_insert(TreeObject {sequence: 67 as u32, frequency: 1 });
         assert_eq!(6, b.get_size());
         assert_eq!(1, b.get_height());
-        // assert!(validate_btree_inserts(b, input))
+        assert!(validate_btree_inserts(b, input));
         delete_file(file_name);
     }
 
