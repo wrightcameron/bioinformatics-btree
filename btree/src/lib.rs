@@ -2,39 +2,40 @@ mod btree_cache;
 mod pager;
 mod btree_node;
 
+use std::rc::Rc;
+use std::cell::{Ref, RefMut, RefCell};
 use crate::pager::Pager;
 use crate::btree_node::*;
-use std::rc::Rc;
 
 pub struct BTree {
-    root_node: Node,
     degree: u32,
     number_of_nodes: u32,
     number_of_keys: u32,
     height: u32,
-    // pager: Pager,
+    pager: Pager,
 }
 
 impl BTree {
-    pub fn new(sequence_length: u32, degree: u32, pager: &mut Pager) -> BTree {
+    pub fn new(sequence_length: u32, degree: u32, file_name: &str, use_cache: bool, cache_size: u32) -> BTree {
         // let output_file = format!("{file_name}.btree.data.{sequence_length}.{degree}");
         let mut btree = BTree {
-            root_node: Node::new(),
             degree,
             number_of_nodes: 1,
             number_of_keys: 0,
             height: 0,
+            pager: Pager::new(&file_name, use_cache, cache_size, degree).unwrap(),
         };
         // Create Root node
-        btree.root_node.offset = pager.file_cursor;
-        pager.write_metadata(btree.root_node.offset, degree);
-        pager.write(&btree.root_node);
+        let mut root_node = Node::new();
+        btree.pager.write_metadata(root_node.offset, degree);
+        root_node.offset = btree.pager.file_cursor;
+        btree.pager.write(&root_node);
         btree
     }
 
     /// Searches the BTree for the TreeObject given as an argument
-    pub fn btree_search(pager: &mut Pager, given_root: Node, key: TreeObject) -> Option<TreeObject> {
-        let mut index = 1;
+    pub fn btree_search(&mut self, given_root: Node, key: TreeObject) -> Option<TreeObject> {
+        let mut index = 0;
         while index <= given_root.keys.len() && key > *given_root.keys.get(index).unwrap() {
             index += 1;
         }
@@ -43,93 +44,125 @@ impl BTree {
         } else if given_root.is_leaf() {
             return None
         } else {
-            let child = pager.read(*given_root.children_ptrs.get(index).unwrap());
-            return BTree::btree_search(pager, child, key);
+            let child = self.pager.read(*given_root.children_ptrs.get(index).unwrap());
+            return self.btree_search(child, key);
         }
     }
 
     /// Splits the tree when the degree of a node gets to size of degree
-    pub fn btree_split_child(degree: u32, pager: &mut Pager, given_root: &mut Node, index: u32) {
+    pub fn btree_split_child(&mut self, given_root: &mut Node, index: u32) {
+        let mut y: Node = self.pager.read(*given_root.children_ptrs.get(index as usize).unwrap());
         let mut z: Node = Node::new();
-        let mut y: Node = pager.read(*given_root.children_ptrs.get(index as usize).unwrap());
-        for i in 1..(degree - 1) {
-            z.keys.insert(i as usize - 1, y.keys.remove(degree as usize + 1 ));
+        z.offset = self.pager.file_cursor;
+        z.is_leaf = y.is_leaf;
+        z.number_of_keys = self.degree - 1;
+
+        for i in 0..(self.degree - 1) {
+            z.keys.insert(i as usize, y.keys.remove((self.degree) as usize));
+            y.number_of_keys -= 1;
         }
-        z.max_keys = degree - 1;
+
         if ! y.is_leaf() {
-            for i in 1..degree {
-                z.children_ptrs.insert( i as usize - 1, y.children_ptrs.remove(degree as usize + 1 ))
+            for i in 0..(self.degree) {
+                z.children_ptrs.insert( i as usize, y.children_ptrs.remove((self.degree) as usize ))
             }
         }
+        y.number_of_keys = self.degree - 1;
+        given_root.number_of_keys = given_root.number_of_keys + 1;
         given_root.children_ptrs.insert(index as usize + 1, z.offset );
-        given_root.keys.insert(index as usize, y.keys.remove(degree as usize));
-        y.max_keys = degree - 1;
-        pager.write(&y);
-        z.offset = pager.file_cursor;
-        pager.write(&z);
-        pager.write(&given_root);
+        given_root.keys.insert(index as usize, y.keys.remove(self.degree as usize - 1));
+        self.pager.write(&y);
+        self.pager.write(&z);
+        self.pager.write(&given_root);
     }
 
     /// Inserts a node into the BTree
-    pub fn btree_insert(degree: u32, pager: &mut Pager, btree: &mut BTree, key: TreeObject){
-        if btree.root_node.keys.len() as u32 == ((2 * degree) - 1) {
-            let old_root = &btree.root_node;
+    pub fn btree_insert(&mut self, key: TreeObject){
+        let (root_offset, degree) = self.pager.read_metadata();
+        let mut root_node = self.pager.read(root_offset);
+        if root_node.keys.len() as u32 == self.maximum_keys() {
+            self.height += 1;
+            let old_root = root_node;
             // file_cursor += node_size; this should be done in the pager
             let mut node = Node::new();
-            node.max_keys = old_root.max_keys;
+            node.is_leaf = false;
+            node.number_of_keys = 0;
             node.add_child_ptr(old_root.offset);
-            node.offset = pager.file_cursor;
+            node.offset = self.pager.file_cursor;
+            // TODO Redundent writes
             // Write above to file
-            pager.write(&node);
-            pager.write(&old_root);
-            pager.write_metadata(node.offset, degree);
-            btree.number_of_nodes += 1;
-            btree.root_node = node;
-            BTree::btree_split_child(degree, pager, &mut btree.root_node, 1);
-            BTree::btree_insert_non_full(degree, pager, &mut btree.root_node, key);
-        } else {
-            BTree::btree_insert_non_full(degree, pager, &mut btree.root_node, key)
+            self.pager.write(&node);  // This needs to be written to move file cursor, or we move the file cursor some other way.
+            // self.pager.write(&old_root);
+            self.pager.write_metadata(node.offset, degree);
+            self.number_of_nodes += 1;
+            root_node = node;
+            self.btree_split_child(&mut root_node, 0);
+            self.btree_insert_non_full(&mut root_node, key);
+        } else {        
+            self.btree_insert_non_full(&mut root_node, key);
         }
     }
 
     /// Inserts an object into the BTree, when the BTree is not full.
-    pub fn btree_insert_non_full(degree: u32, pager: &mut Pager, given_root: &mut Node, key: TreeObject) {
-        let mut index = given_root.keys.len();
+    pub fn btree_insert_non_full(&mut self, given_root: &mut Node, key: TreeObject) {
+        let mut index: isize = given_root.keys.len() as isize;
         if given_root.is_leaf() {
-            while index >= 1 && key < *given_root.keys.get(index).unwrap() {
+            while index > 0 && key < *given_root.keys.get(index as usize - 1).unwrap() {
                 index -= 1;
             }
-            if index >= 1 && key == *given_root.keys.get(index).unwrap() {
-                given_root.keys.get_mut(index).unwrap().increase_frequency();
+            if index > 0 && key == *given_root.keys.get(index as usize - 1).unwrap() {
+                given_root.keys.get_mut(index as usize - 1).unwrap().increase_frequency();
             } else {
-                given_root.keys.insert(index, key);
+                given_root.keys.insert(index as usize, key);
+                given_root.number_of_keys += 1;
             }
-            pager.write(&given_root);
+            self.pager.write(&given_root);
+            self.number_of_keys += 1;
         } else {
-            while index >= 1 && key < *given_root.keys.get(index).unwrap() {
+            while index >= 1 && key < *given_root.keys.get(index as usize - 1).unwrap() {
                 index -= 1;
             }
-            if index >= 1 && key == *given_root.keys.get(index).unwrap() {
-                given_root.keys.get_mut(index).unwrap().increase_frequency();
-                pager.write(&given_root);
-            } else {
-                index += 1;
-                let mut child: Node = pager.read(*given_root.children_ptrs.get(index).unwrap());
-                if child.keys.len() == (2 * degree as usize) - 1 {
-                    BTree::btree_split_child(degree, pager, given_root, index as u32);
-                    if key > *given_root.keys.get(index).unwrap() {
-                        index += 1;
-                    }
+            index += 1;
+            let mut child: Node = self.pager.read(*given_root.children_ptrs.get(index as usize - 1).unwrap());
+            if child.keys.len() == (2 * self.degree as usize) - 1 {
+                self.btree_split_child(given_root, index as u32 - 1);
+                if key > *given_root.keys.get(index as usize - 1).unwrap() {
+                    index += 1;
                 }
-                BTree::btree_insert_non_full(degree, pager, &mut child, key)
+                // Refresh the child node, which was changed from the split
+                child = self.pager.read(*given_root.children_ptrs.get(index as usize - 1).unwrap());
             }
-
+            self.btree_insert_non_full(&mut child, key);
+            // if index > 0 && key == *given_root.keys.get(index - 1).unwrap() {
+            //     given_root.keys.get_mut(index - 1).unwrap().increase_frequency();
+            //     self.pager.write(&given_root);
+            //     self.number_of_keys += 1;
+            // } else {
+            //     while index >= 0 && key < *given_root.keys.get(index).unwrap() {
+            //         index -= 1;
+            //     }
+            //     index += 1;
+            //     let mut child: Node = self.pager.read(*given_root.children_ptrs.get(index - 1).unwrap());
+            //     if child.keys.len() == (2 * self.degree as usize) - 1 {
+            //         self.btree_split_child(given_root, index
+                        
+            //              as u32);
+            //         if key > *given_root.keys.get(index - 1).unwrap() {
+            //             index += 1;
+            //         }
+            //     }
+            //     self.btree_insert_non_full(&mut child, key)
+            // }
         }
     }
 
     // pub fn in_order_traversal(root, writer, sequence_length){
 
     // }
+
+    pub fn maximum_keys(&self) -> u32 {
+        2 * self.degree - 1
+    }
 
     /**
      * @return Returns the number of keys in the BTree.
@@ -215,12 +248,12 @@ mod tests {
     }
 
     /// BTree constructor used only for testing
-    // fn btree(degree: u32, file_name: &str) -> BTree {
-    //     let sequence_length = 0;
-    //     let use_cache = false;
-    //     let cache_size = 0;
-    //     BTree::new(sequence_length, degree, file_name, use_cache, cache_size)
-    // }
+    fn btree(degree: u32, file_name: &str) -> BTree {
+        let sequence_length = 0;
+        let use_cache = false;
+        let cache_size = 0;
+        BTree::new(sequence_length, degree, file_name, use_cache, cache_size)
+    }
 
     fn validate_btree_inserts(b: BTree, input_keys: Vec<i64>) -> bool {
         let mut btree_keys = b.get_sorted_key_array();
@@ -264,10 +297,9 @@ mod tests {
     fn test_btree_create() {
         let file_name = "test_btree_create.tmp";
         delete_file(file_name);
-        let mut pager = Pager::new(file_name, false, 0).unwrap();
-        let mut b: BTree = BTree::new(0, 1, &mut pager);
+        let b: BTree = btree(1, file_name);
         assert_eq!(0, b.height);
-        assert_eq!(0, b.get_size());
+        assert_eq!(0, b.get_size());    
         assert_eq!(1, b.number_of_nodes);
         delete_file(file_name);
     }
@@ -277,8 +309,7 @@ mod tests {
     fn test_btree_create_degree() {
         let file_name = "test_btree_create_degree.tmp";
         delete_file(file_name);
-        let mut pager = Pager::new(file_name, false, 0).unwrap();
-        let mut b: BTree = BTree::new(0, 3, &mut pager);
+        let b: BTree = btree(3, file_name);
         assert_eq!(3, b.get_degree());
         delete_file(file_name);
     }
@@ -291,33 +322,103 @@ mod tests {
     fn test_insert_one_key() {
         let file_name = "test_insert_one_key.tmp";
         delete_file(file_name);
-        let mut pager = Pager::new(file_name, false, 0).unwrap();
-        let mut b: BTree = BTree::new(0, 2, &mut pager);
-        BTree::btree_insert(b.degree, &mut pager, &mut b, TreeObject { sequence: 1, frequency: 0 } );
+        let mut b: BTree = btree(2, file_name);
+        b.btree_insert(TreeObject { sequence: 1, frequency: 1 });
         assert_eq!(1, b.get_size());
         assert_eq!(0, b.get_height());
         delete_file(file_name);
     }
 
-    // /**
-    //  * Ten Keys (0 -> 9) added to a tree of degree 2, ensuring full nodes will be split.
-    //  *
-    //  */
-    // #[test]
-    // fn test_insert_10_keys() {
-    //     let file_name = "test_insert_10_keys.tmp";
-    //     let mut b: BTree = btree(2, file_name);
-    //     //TODO Change this to array, instead of vector
-    //     let mut input: Vec<i64> = Vec::new();
-    //     for i in 0..10 {
-    //         input[i] = i as i64;
-    //         b.insert(TreeObject {sequence: i as u32, frequency: 0 })
-    //     }
+    #[test]
+    fn test_5_key_split_root() {
+        // https://youtu.be/K1a2Bk8NrYQ?t=285
+        let file_name = "test_5_key_split_root  .tmp";
+        delete_file(file_name);
+        let mut b: BTree = btree(3, file_name); // Chould split at 5 keys
+        let mut input: Vec<i64> =   Vec::new();
+        b.btree_insert(TreeObject {sequence: 59 as u32, frequency: 1 });
+        b.btree_insert(TreeObject {sequence: 23 as u32, frequency: 1 });
+        b.btree_insert(TreeObject {sequence: 7 as u32, frequency: 1 });
+        b.btree_insert(TreeObject {sequence: 97 as u32, frequency: 1 });
+        b.btree_insert(TreeObject {sequence: 73 as u32, frequency: 1 });
+        // split
+        b.btree_insert(TreeObject {sequence: 67 as u32, frequency: 1 });
+        assert_eq!(6, b.get_size());
+        assert_eq!(1, b.get_height());
+        // assert!(validate_btree_inserts(b, input))
+        delete_file(file_name);
+    }
 
-    //     assert_eq!(10, b.get_size());
-    //     assert_eq!(2, b.get_height());
-    //     assert!(validate_btree_inserts(b, input))
-    // }
+
+    #[test]
+    fn test_10_key_split() {
+        // https://youtu.be/K1a2Bk8NrYQ?t=363
+        let file_name = "test_5_key_split_root  .tmp";
+        delete_file(file_name);
+        let mut b: BTree = btree(3, file_name); // Chould split at 5 keys
+        let mut input: Vec<i64> =   Vec::new();
+        b.btree_insert(TreeObject {sequence: 59 as u32, frequency: 1 });
+        b.btree_insert(TreeObject {sequence: 23 as u32, frequency: 1 });
+        b.btree_insert(TreeObject {sequence: 7 as u32, frequency: 1 });
+        b.btree_insert(TreeObject {sequence: 97 as u32, frequency: 1 });
+        b.btree_insert(TreeObject {sequence: 73 as u32, frequency: 1 });
+        // split
+        b.btree_insert(TreeObject {sequence: 67 as u32, frequency: 1 });
+        b.btree_insert(TreeObject {sequence: 19 as u32, frequency: 1 });
+        b.btree_insert(TreeObject {sequence: 79 as u32, frequency: 1 });
+        b.btree_insert(TreeObject {sequence: 61 as u32, frequency: 1 });
+        b.btree_insert(TreeObject {sequence: 41 as u32, frequency: 1 });
+        assert_eq!(10, b.get_size());
+        assert_eq!(1, b.get_height());
+        // assert!(validate_btree_inserts(b, input))
+        delete_file(file_name);
+    }
+
+
+    #[test]
+    fn test_11_key_3_split() {
+        // https://youtu.be/K1a2Bk8NrYQ?t=363
+        let file_name = "test_5_key_split_root  .tmp";
+        delete_file(file_name);
+        let mut b: BTree = btree(3, file_name); // Chould split at 5 keys
+        let mut input: Vec<i64> =   Vec::new();
+        b.btree_insert(TreeObject {sequence: 59 as u32, frequency: 1 });
+        b.btree_insert(TreeObject {sequence: 23 as u32, frequency: 1 });
+        b.btree_insert(TreeObject {sequence: 7 as u32, frequency: 1 });
+        b.btree_insert(TreeObject {sequence: 97 as u32, frequency: 1 });
+        b.btree_insert(TreeObject {sequence: 73 as u32, frequency: 1 });
+        // split
+        b.btree_insert(TreeObject {sequence: 67 as u32, frequency: 1 });
+        b.btree_insert(TreeObject {sequence: 19 as u32, frequency: 1 });
+        b.btree_insert(TreeObject {sequence: 79 as u32, frequency: 1 });
+        b.btree_insert(TreeObject {sequence: 61 as u32, frequency: 1 });
+        b.btree_insert(TreeObject {sequence: 41 as u32, frequency: 1 });
+        // split
+        b.btree_insert(TreeObject {sequence: 74 as u32, frequency: 1 });
+
+        assert_eq!(11, b.get_size());
+        assert_eq!(1, b.get_height());
+        // assert!(validate_btree_inserts(b, input))
+        delete_file(file_name);
+    }
+
+    /// Ten Keys (0 -> 9) added to a tree of degree 2, ensuring full nodes will be split.
+    #[test]
+    fn test_insert_10_keys() {
+        let file_name = "test_insert_10_keys.tmp";
+        delete_file(file_name);
+        let mut b: BTree = btree(2, file_name);
+        //TODO Change this to array, instead of vector
+        let mut input: Vec<i64> = Vec::new();
+        for i in 0..10 {
+            input.push(i);
+            b.btree_insert(TreeObject {sequence: i as u32, frequency: 1 })
+        }
+        assert_eq!(10, b.get_size());
+        assert_eq!(2, b.get_height());
+        // assert!(validate_btree_inserts(b, input))
+        delete_file(file_name);
+    }
 
     // /**
     //  * Ten keys (10 -> 1) inserted into a BTree of degree 2.

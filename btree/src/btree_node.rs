@@ -1,8 +1,11 @@
 use std::cmp::Ordering;
+use std::rc::Rc;
+use std::cell::{Ref, RefMut, RefCell};
 
 #[derive(Debug)]
 pub struct Node{
-    pub max_keys: u32,
+    pub number_of_keys: u32,
+    pub is_leaf: bool,
     pub offset: u32,
     pub keys: Vec<TreeObject>,
     pub children_ptrs: Vec<u32>,
@@ -11,7 +14,8 @@ pub struct Node{
 impl Default for Node {
     fn default() -> Self {
         Node {
-        max_keys: 0,
+        number_of_keys: 0,
+        is_leaf: true,
         offset: 0,
         keys: Vec::new(),
         children_ptrs: Vec::new(),
@@ -21,7 +25,8 @@ impl Default for Node {
 
 impl PartialEq for Node {
     fn eq(&self, other: &Self) -> bool {
-        self.max_keys == other.max_keys &&
+        self.number_of_keys == other.number_of_keys &&
+        self.is_leaf == other.is_leaf &&
         self.offset == other.offset &&
         self.keys == other.keys &&
         self.children_ptrs == other.children_ptrs
@@ -38,11 +43,17 @@ impl Node {
     }
 
     pub fn is_leaf(&self) -> bool {
-        self.children_ptrs.len() == 0
+        // self.children_ptrs.len() == 0
+        self.is_leaf
     }
 
     pub fn number_of_keys(&self) -> u32 {
-        self.keys.len() as u32
+        // self.keys.len() as u32
+        self.number_of_keys
+    }
+
+    pub fn number_of_children(&self) -> u32 {
+        self.children_ptrs.len() as u32
     }
 }
 
