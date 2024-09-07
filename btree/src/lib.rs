@@ -115,9 +115,9 @@ impl BTree {
             } else {
                 given_root.keys.insert(index as usize, key);
                 given_root.number_of_keys += 1;
+                self.number_of_keys += 1;
             }
             self.pager.write(&given_root);
-            self.number_of_keys += 1;
         } else {
             while index >= 1 && key < *given_root.keys.get(index as usize - 1).unwrap() {
                 index -= 1;
@@ -353,7 +353,7 @@ mod tests {
     #[test]
     fn test_10_key_split() {
         // https://youtu.be/K1a2Bk8NrYQ?t=363
-        let file_name = "test_5_key_split_root  .tmp";
+        let file_name = "test_10_key_split.tmp";
         delete_file(file_name);
         let mut b: BTree = btree(3, file_name); // Chould split at 5 keys
         let mut input: Vec<i64> =   Vec::new();
@@ -378,7 +378,7 @@ mod tests {
     #[test]
     fn test_11_key_3_split() {
         // https://youtu.be/K1a2Bk8NrYQ?t=363
-        let file_name = "test_5_key_split_root  .tmp";
+        let file_name = "test_5_key_split_root.tmp";
         delete_file(file_name);
         let mut b: BTree = btree(3, file_name); // Chould split at 5 keys
         let mut input: Vec<i64> =   Vec::new();
@@ -423,39 +423,39 @@ mod tests {
     // /**
     //  * Ten keys (10 -> 1) inserted into a BTree of degree 2.
     //  */
-    // #[test]
-    // fn test_insert_10_keys_reverse_order() {
-    //     let file_name = "test_insert_10_keys_reverse_order.tmp";
-    //     let mut b: BTree = btree(2, file_name);
-    //     //TODO Change this to array, instead of vector
-    //     let mut input: Vec<i64> = Vec::new();
-    //     for i in (0..10).rev() {
-    //         input[i] = i as i64;
-    //         b.insert(TreeObject {sequence: i as u32, frequency: 0 })
-    //     }
+    #[test]
+    fn test_insert_10_keys_reverse_order() {
+        let file_name = "test_insert_10_keys_reverse_order.tmp";
+        let mut b: BTree = btree(2, file_name);
+        //TODO Change this to array, instead of vector
+        let mut input: Vec<i64> = Vec::new();
+        for i in (0..10).rev() {
+            input.push(i);
+            b.btree_insert(TreeObject {sequence: i as u32, frequency: 1 })
+        }
 
-    //     assert_eq!(10, b.get_size());
-    //     assert_eq!(2, b.get_height());
-    //     assert!(validate_btree_inserts(b, input))
-    // }
+        assert_eq!(10, b.get_size());
+        assert_eq!(2, b.get_height());
+        // assert!(validate_btree_inserts(b, input))
+    }
 
     // /**
     //  * Tests that adding duplicate key values to the tree doesn't create
     //  * duplicates within the tree.
     //  */
-    // #[test]
-    // fn test_insert_10_duplicates() {
-    //     let file_name = "test_insert_10_duplicates.tmp";
-    //     let mut b: BTree = btree(2, file_name);
-    //     //TODO Change this to array, instead of vector
-    //     let input = vec![1,1,1,1,1,1,1,1,1,1];
-    //     for _ in 0..10 {
-    //         b.insert(TreeObject {sequence: 1, frequency: 0 })
-    //     }
+    #[test]
+    fn test_insert_10_duplicates() {
+        let file_name = "test_insert_10_duplicates.tmp";
+        let mut b: BTree = btree(2, file_name);
+        //TODO Change this to array, instead of vector
+        let input = vec![1,1,1,1,1,1,1,1,1,1];
+        for _ in 0..10 {
+            b.btree_insert(TreeObject {sequence: 1, frequency: 1 })
+        }
 
-    //     assert_eq!(10, b.get_size());
-    //     assert_eq!(2, b.get_height());
-    //     assert!(validate_btree_inserts(b, input))
-    // }
+        assert_eq!(1, b.get_size());
+        assert_eq!(0, b.get_height());
+        // assert!(validate_btree_inserts(b, input))
+    }
 
 }

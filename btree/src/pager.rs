@@ -250,7 +250,7 @@ mod tests {
 
         #[test]
         fn test_pager_metadata_10_nodes(){
-            let file_name = "test_pager_write_read_2_node.tmp";
+            let file_name = "test_pager_metadata_10_nodes.tmp";
             delete_file(file_name);
             let mut pager = Pager::new(file_name, false, 0, 1).unwrap();
             pager.file_cursor = 8;
