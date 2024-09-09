@@ -33,3 +33,7 @@ maximum number of `BTreeNode` objects that can be stored in memory
     - `1`: The program writes a text file named `dump`, containing the frequency and the DNA
     string (corresponding to the key stored) in an inorder traversal, and has the following
     line format:
+
+### Usage Examples
+
+`cargo run -- -g ../data/geneBankFiles/test0.gbk`

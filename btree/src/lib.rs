@@ -1,6 +1,6 @@
 mod btree_cache;
 mod pager;
-mod btree_node;
+pub mod btree_node;
 
 use crate::pager::Pager;
 use crate::btree_node::*;
@@ -30,6 +30,12 @@ impl BTree {
         btree
     }
 
+    pub fn btree_search_root(&mut self, key: TreeObject) -> Option<TreeObject> {
+        let offset = self.pager.get_root_offset();
+        let root_node = self.pager.read(offset);
+        self.btree_search(root_node, key)
+    }
+    
     /// Searches the BTree for the TreeObject given as an argument
     pub fn btree_search(&mut self, given_root: Node, key: TreeObject) -> Option<TreeObject> {
         let mut index = 0;

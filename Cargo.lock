@@ -175,12 +175,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "gene"
+version = "0.1.0"
+
+[[package]]
 name = "gene-bank-create-btree"
 version = "0.1.0"
 dependencies = [
  "btree",
  "clap",
  "env_logger",
+ "gene",
  "log",
  "regex",
 ]
@@ -189,8 +194,10 @@ dependencies = [
 name = "gene-bank-search-btree"
 version = "0.1.0"
 dependencies = [
+ "btree",
  "clap",
  "env_logger",
+ "gene",
 ]
 
 [[package]]

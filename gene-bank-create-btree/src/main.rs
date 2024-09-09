@@ -3,6 +3,8 @@ use regex::Regex;
 use std::fs;
 use std::path::Path;
 use btree::BTree;
+use btree::btree_node::TreeObject;
+use gene;
 
 
 #[derive(Parser)]
@@ -12,7 +14,7 @@ struct Cli {
     #[arg(short, long, default_value_t = 0)]
     cache: u32,
     /// the degree to be used for the B-Tree. If the user specifies 0, then our program should choose the optimum degree based on a disk block size of 4096 bytes and the size of our B-Tree node on disk
-    #[arg(short, long, default_value_t = 0)]
+    #[arg(short, long, default_value_t = 3)]
     degree: u32,
     /// input *.gbk file containing the input DNA sequences
     #[arg(short, long)]
@@ -36,7 +38,6 @@ fn main() {
     let gbk_file = cli.gbkfile;
     let sequence_length = cli.length;
     let cache_size = cli.cachesize.unwrap_or(100);
-    let debug = cli.debug.unwrap_or(0);
     if cli.debug.unwrap_or(0) == 1 {
         std::env::set_var("RUST_LOG", "debug");
         env_logger::init();
@@ -49,7 +50,6 @@ fn main() {
     // TODO Combine with if file exists above cause function returns None if not found.
     // Scan gbk file
     let dna_sequences = parse_gbk(&gbk_file).expect("No Sequences found");
-    // TODO Need to handle n characters
     // Get sequences into lengths
     let chunk_sequences: Vec<String> = dna_sequences.iter().map(| x | {
         x.chars().collect::<Vec<char>>()
@@ -57,27 +57,43 @@ fn main() {
             .map(| c | c.iter().collect::<String>())
             .collect::<Vec<String>>()
     }).collect::<Vec<Vec<String>>>().concat();
-    log::debug!("{:?}", chunk_sequences);
-    //TODO Create BTree Object
+    log::debug!("Here {:?}", chunk_sequences);
     let use_cache = cache == 0;
-    let mut btree = BTree::new(sequence_length, degree, &gbk_file, use_cache, cache_size);
+    let output_file = format!("{gbk_file}.btree.data.{sequence_length}.{degree}");
+    //Create BTree Object
+    let mut btree = BTree::new(sequence_length, degree, &output_file, use_cache, cache_size);
     for i in chunk_sequences.iter() {
-        btree.insert(i);
+        // Change sequence of gene's to binary.
+        let bin_sequence = gene::to_u32(i);
+        let obj = TreeObject { sequence: bin_sequence, frequency: 0};
+        btree.btree_insert(obj);
     }
-    //TODO Save btree object to disk
-    println!("Done");
+    println!("Finished");
 }
 
 /// Parse the GBK file for DNA sequences
 fn parse_gbk(gbk_file: &str) -> Option<Vec<String>> {
     let hay = fs::read_to_string(gbk_file).expect("Couldn't read file ({gbk_file})");
     let re = Regex::new(r"ORIGIN[^\/\/]*\/\/").unwrap();
+    let sequence_break_re = Regex::new(r"n+").unwrap();
     // let sequences = contents.match_indices(&re).collect::<Vec<_>>();
     let sequences: Vec<String> = re.find_iter(&hay.as_str()).map(|m| {
+        // Remove whitespace
         let mut m = m.as_str().replace(&['\n', ' ', '/'][..], "");
+        // Remove line numbers
         m = m.chars().filter(| c | !c.is_digit(10)).collect();
-        m.replace("ORIGIN", "")
-    }).collect();
+        // Condence sequence breaks down to one n
+        m = sequence_break_re.replace_all(&m, "x").as_ref().to_string();
+        // Remove starting ORIGIN
+        m = m.replace("ORIGIN", "");
+        // Split sequence breaks 
+        let res: Vec<String> = if m.contains('x') {
+            m.split('x').map(| y | y.to_string() ).collect()
+        } else {
+            vec![m.to_string()]
+        };
+        res
+    }).flatten().collect();
     log::debug!("Sequences found {:?}", sequences);
     if sequences.len() == 0 { None } else { Some(sequences)}
 }
