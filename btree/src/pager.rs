@@ -1,7 +1,7 @@
 use std::fs::File;
 use std::path::Path;
 use std::fs::OpenOptions;
-use std::io::{BufReader, BufWriter, Read, Seek, Write};
+use std::io::{Read, Seek, Write};
 use std::io::SeekFrom;
 use crate::btree_node::Node;
 use crate::btree_cache::BTreeCache;
@@ -177,31 +177,22 @@ impl Pager {
         }
     }
 
-    fn get_root_offset(&self) -> i32 {
-        let path = Path::new(&self.file_name);
-        let file = File::open(path).unwrap();
-        let mut read_buffer = BufReader::new(file);
-        let mut buf = [0;4];
-        read_buffer.read(&mut buf);
-        i32::from_ne_bytes(buf)
+    pub fn get_root_offset(&mut self) -> u32 {
+        let (root_offset, _degree) = self.read_metadata();
+        root_offset
     }
 
 }
 
 #[cfg(test)]
 mod tests {
-    use rand::Rng;
     use super::*;
 
-    const TEST_FILE_NAME: &str = "Test_BTree.tmp";
-    
+
     fn delete_file(file: &str){
         std::fs::remove_file(file).ok();
     }
 
-    // fn gen_random_node() -> Node {
-    //     Node {}
-    // }
 
     #[test]
     fn test_pager_metadata() {

@@ -49,6 +49,5 @@ fn main() {
         println!("{queryfile} not found.");
         std::process::exit(1);
     }
-    todo!();
     println!("Hello, world!");
 }

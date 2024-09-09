@@ -1,6 +1,4 @@
 use std::cmp::Ordering;
-use std::rc::Rc;
-use std::cell::{Ref, RefMut, RefCell};
 
 #[derive(Debug)]
 pub struct Node{
@@ -57,7 +55,7 @@ impl Node {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug, Eq)]
 pub struct TreeObject {
     pub sequence: u32,
     pub frequency: u32,
@@ -72,6 +70,12 @@ impl PartialEq for TreeObject {
 impl PartialOrd for TreeObject {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         self.sequence.partial_cmp(&other.sequence)
+    }
+}
+
+impl Ord for TreeObject {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.sequence.cmp(&other.sequence)
     }
 }
 

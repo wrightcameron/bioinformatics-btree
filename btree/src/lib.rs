@@ -2,8 +2,6 @@ mod btree_cache;
 mod pager;
 mod btree_node;
 
-use std::rc::Rc;
-use std::cell::{Ref, RefMut, RefCell};
 use crate::pager::Pager;
 use crate::btree_node::*;
 
@@ -17,7 +15,6 @@ pub struct BTree {
 
 impl BTree {
     pub fn new(sequence_length: u32, degree: u32, file_name: &str, use_cache: bool, cache_size: u32) -> BTree {
-        // let output_file = format!("{file_name}.btree.data.{sequence_length}.{degree}");
         let mut btree = BTree {
             degree,
             number_of_nodes: 1,
@@ -49,30 +46,31 @@ impl BTree {
         }
     }
 
-
-    pub fn btree_in_order_traversal(&self, node_offset_option: Option<u32>, sorted_keys: Vec<TreeObject>) {
+    // TODO Shouldn't this return child offsets of keys instead of keys, cause big enough btree this would take alot of memory.
+    // TODO Also this might change once we add a cache, well anything with reference counters will change.
+    pub fn btree_in_order_traversal(&mut self, node_offset_option: Option<u32>, sorted_keys: &mut Vec<TreeObject>) {
         if let Some(node_offset) = node_offset_option {
             let node = self.pager.read(node_offset);
             for i in 0..node.children_ptrs.len() {
-                self.btree_in_order_traversal(node.children_ptrs.get(i), sorted_keys);
+                self.btree_in_order_traversal(node.children_ptrs.get(i).copied(), sorted_keys);
                 if i < node.keys.len() {
-                    sorted_keys.push(node.keys.get(i));
+                    sorted_keys.push(node.keys.get(i).copied().expect("Reason TODO"));
+                }
+            }
+            if node.children_ptrs.len() == 0{
+                for i in 0..node.keys.len() {
+                    sorted_keys.push(node.keys.get(i).copied().expect("Reason TODO"));
                 }
             }
         }
     }
-    // public void InOrderTraversal(BTreeNode<T1, T2> node, List<KeyValuePair<T1, T2>> sortedKeys)
-    //     {
-    //         if (node != null)
-    //         {
-    //             for (int i = 0; i < node.Children.Count; i++)
-    //             {
-    //                 InOrderTraversal(node.Children[i], sortedKeys);
-    //                 if (i < node.KeyValues.Count)
-    //                     sortedKeys.Add(node.KeyValues[i]);
-    //             }
-    //         }
-    //     }
+
+    pub fn get_sorted_key_array(&mut self) -> Vec<u32> {
+        let mut sorted_keys: Vec<TreeObject> = Vec::new();
+        let root_offset = self.pager.get_root_offset() as u32;
+        self.btree_in_order_traversal(Some(root_offset), &mut sorted_keys);
+        sorted_keys.iter().map(| x | x.sequence ).collect()
+    }
 
     /// Splits the tree when the degree of a node gets to size of degree
     pub fn btree_split_child(&mut self, given_root: &mut Node, index: u32) {
@@ -274,9 +272,7 @@ impl Iterator for BTree {
 mod tests {
     use super::*;
 
-    const TEST_FILE_NAME: &str = "Test_BTree.tmp";
 
-    
     fn delete_file(file: &str){
         std::fs::remove_file(file).ok();
     }
@@ -289,14 +285,14 @@ mod tests {
         BTree::new(sequence_length, degree, file_name, use_cache, cache_size)
     }
 
-    fn validate_btree_inserts(b: BTree, input_keys: Vec<i64>) -> bool {
+    fn validate_btree_inserts(mut b: BTree, input_keys: Vec<u32>) -> bool {
         let mut btree_keys = b.get_sorted_key_array();
         // input may be unsorted
         btree_keys.sort();
         // track input as a dynamic set to easily remove duplicates
-        let mut input_no_duplicates: Vec<i64> = Vec::new();
+        let mut input_no_duplicates: Vec<u32> = Vec::new();
         // Copy with exluding duplicates
-        for i in 1..input_keys.len() {
+        for i in 0..input_keys.len() {
             if i > 0 {
                 // only add an element if it is different from the previous iteration
                 if input_keys[i - 1] != input_keys[i] {
@@ -311,7 +307,7 @@ mod tests {
             return false;
         }
 
-        let prev: i64 = btree_keys[0];
+        let prev: u32 = btree_keys[0];
 
         for i in 0..btree_keys.len() {
             if btree_keys[i] != input_no_duplicates.get(i).unwrap().clone() {
@@ -366,10 +362,10 @@ mod tests {
     #[test]
     fn test_5_key_split_root() {
         // https://youtu.be/K1a2Bk8NrYQ?t=285
-        let file_name = "test_5_key_split_root  .tmp";
+        let file_name = "test_5_key_split_root.tmp";
         delete_file(file_name);
         let mut b: BTree = btree(3, file_name); // Chould split at 5 keys
-        let mut input: Vec<i64> =   Vec::new();
+        let input = vec![7, 23, 59, 67, 73, 97];
         b.btree_insert(TreeObject {sequence: 59 as u32, frequency: 1 });
         b.btree_insert(TreeObject {sequence: 23 as u32, frequency: 1 });
         b.btree_insert(TreeObject {sequence: 7 as u32, frequency: 1 });
@@ -390,7 +386,7 @@ mod tests {
         let file_name = "test_10_key_split.tmp";
         delete_file(file_name);
         let mut b: BTree = btree(3, file_name); // Chould split at 5 keys
-        let mut input: Vec<i64> =   Vec::new();
+        let input = vec![7, 19, 23, 41, 59, 61, 67, 73, 79, 97];
         b.btree_insert(TreeObject {sequence: 59 as u32, frequency: 1 });
         b.btree_insert(TreeObject {sequence: 23 as u32, frequency: 1 });
         b.btree_insert(TreeObject {sequence: 7 as u32, frequency: 1 });
@@ -404,7 +400,7 @@ mod tests {
         b.btree_insert(TreeObject {sequence: 41 as u32, frequency: 1 });
         assert_eq!(10, b.get_size());
         assert_eq!(1, b.get_height());
-        // assert!(validate_btree_inserts(b, input))
+        assert!(validate_btree_inserts(b, input));
         delete_file(file_name);
     }
 
@@ -412,10 +408,10 @@ mod tests {
     #[test]
     fn test_11_key_3_split() {
         // https://youtu.be/K1a2Bk8NrYQ?t=363
-        let file_name = "test_5_key_split_root.tmp";
+        let file_name = "test_11_key_3_split.tmp";
         delete_file(file_name);
         let mut b: BTree = btree(3, file_name); // Chould split at 5 keys
-        let mut input: Vec<i64> =   Vec::new();
+        let input = vec![7, 19, 23, 41, 59, 61, 67, 73, 74, 79, 97];
         b.btree_insert(TreeObject {sequence: 59 as u32, frequency: 1 });
         b.btree_insert(TreeObject {sequence: 23 as u32, frequency: 1 });
         b.btree_insert(TreeObject {sequence: 7 as u32, frequency: 1 });
@@ -432,7 +428,7 @@ mod tests {
 
         assert_eq!(11, b.get_size());
         assert_eq!(1, b.get_height());
-        // assert!(validate_btree_inserts(b, input))
+        assert!(validate_btree_inserts(b, input));
         delete_file(file_name);
     }
 
@@ -442,15 +438,14 @@ mod tests {
         let file_name = "test_insert_10_keys.tmp";
         delete_file(file_name);
         let mut b: BTree = btree(2, file_name);
-        //TODO Change this to array, instead of vector
-        let mut input: Vec<i64> = Vec::new();
+        let mut input = Vec::new();
         for i in 0..10 {
             input.push(i);
             b.btree_insert(TreeObject {sequence: i as u32, frequency: 1 })
         }
         assert_eq!(10, b.get_size());
         assert_eq!(2, b.get_height());
-        // assert!(validate_btree_inserts(b, input))
+        assert!(validate_btree_inserts(b, input));
         delete_file(file_name);
     }
 
@@ -461,16 +456,15 @@ mod tests {
     fn test_insert_10_keys_reverse_order() {
         let file_name = "test_insert_10_keys_reverse_order.tmp";
         let mut b: BTree = btree(2, file_name);
-        //TODO Change this to array, instead of vector
-        let mut input: Vec<i64> = Vec::new();
+        let mut input = Vec::new();
         for i in (0..10).rev() {
             input.push(i);
             b.btree_insert(TreeObject {sequence: i as u32, frequency: 1 })
         }
-
+        input.reverse();
         assert_eq!(10, b.get_size());
         assert_eq!(2, b.get_height());
-        // assert!(validate_btree_inserts(b, input))
+        assert!(validate_btree_inserts(b, input))
     }
 
     // /**
@@ -481,7 +475,6 @@ mod tests {
     fn test_insert_10_duplicates() {
         let file_name = "test_insert_10_duplicates.tmp";
         let mut b: BTree = btree(2, file_name);
-        //TODO Change this to array, instead of vector
         let input = vec![1,1,1,1,1,1,1,1,1,1];
         for _ in 0..10 {
             b.btree_insert(TreeObject {sequence: 1, frequency: 1 })
@@ -489,7 +482,7 @@ mod tests {
 
         assert_eq!(1, b.get_size());
         assert_eq!(0, b.get_height());
-        // assert!(validate_btree_inserts(b, input))
+        assert!(validate_btree_inserts(b, input))
     }
 
 }
