@@ -71,7 +71,7 @@ impl BTree {
         }
     }
 
-    pub fn get_sorted_key_array(&mut self) -> Vec<u32> {
+    pub fn get_sorted_key_array(&mut self) -> Vec<u64> {
         let mut sorted_keys: Vec<TreeObject> = Vec::new();
         let root_offset = self.pager.get_root_offset() as u32;
         self.btree_in_order_traversal(Some(root_offset), &mut sorted_keys);
@@ -291,12 +291,12 @@ mod tests {
         BTree::new(sequence_length, degree, file_name, use_cache, cache_size)
     }
 
-    fn validate_btree_inserts(mut b: BTree, input_keys: Vec<u32>) -> bool {
+    fn validate_btree_inserts(mut b: BTree, input_keys: Vec<u64>) -> bool {
         let mut btree_keys = b.get_sorted_key_array();
         // input may be unsorted
         btree_keys.sort();
         // track input as a dynamic set to easily remove duplicates
-        let mut input_no_duplicates: Vec<u32> = Vec::new();
+        let mut input_no_duplicates: Vec<u64> = Vec::new();
         // Copy with exluding duplicates
         for i in 0..input_keys.len() {
             if i > 0 {
@@ -313,7 +313,7 @@ mod tests {
             return false;
         }
 
-        let prev: u32 = btree_keys[0];
+        let prev: u64 = btree_keys[0];
 
         for i in 0..btree_keys.len() {
             if btree_keys[i] != input_no_duplicates.get(i).unwrap().clone() {
@@ -372,13 +372,13 @@ mod tests {
         delete_file(file_name);
         let mut b: BTree = btree(3, file_name); // Chould split at 5 keys
         let input = vec![7, 23, 59, 67, 73, 97];
-        b.btree_insert(TreeObject {sequence: 59 as u32, frequency: 1 });
-        b.btree_insert(TreeObject {sequence: 23 as u32, frequency: 1 });
-        b.btree_insert(TreeObject {sequence: 7 as u32, frequency: 1 });
-        b.btree_insert(TreeObject {sequence: 97 as u32, frequency: 1 });
-        b.btree_insert(TreeObject {sequence: 73 as u32, frequency: 1 });
+        b.btree_insert(TreeObject {sequence: 59 as u64, frequency: 1 });
+        b.btree_insert(TreeObject {sequence: 23 as u64, frequency: 1 });
+        b.btree_insert(TreeObject {sequence: 7 as u64, frequency: 1 });
+        b.btree_insert(TreeObject {sequence: 97 as u64, frequency: 1 });
+        b.btree_insert(TreeObject {sequence: 73 as u64, frequency: 1 });
         // split
-        b.btree_insert(TreeObject {sequence: 67 as u32, frequency: 1 });
+        b.btree_insert(TreeObject {sequence: 67 as u64, frequency: 1 });
         assert_eq!(6, b.get_size());
         assert_eq!(1, b.get_height());
         assert!(validate_btree_inserts(b, input));
@@ -393,17 +393,17 @@ mod tests {
         delete_file(file_name);
         let mut b: BTree = btree(3, file_name); // Chould split at 5 keys
         let input = vec![7, 19, 23, 41, 59, 61, 67, 73, 79, 97];
-        b.btree_insert(TreeObject {sequence: 59 as u32, frequency: 1 });
-        b.btree_insert(TreeObject {sequence: 23 as u32, frequency: 1 });
-        b.btree_insert(TreeObject {sequence: 7 as u32, frequency: 1 });
-        b.btree_insert(TreeObject {sequence: 97 as u32, frequency: 1 });
-        b.btree_insert(TreeObject {sequence: 73 as u32, frequency: 1 });
+        b.btree_insert(TreeObject {sequence: 59 as u64, frequency: 1 });
+        b.btree_insert(TreeObject {sequence: 23 as u64, frequency: 1 });
+        b.btree_insert(TreeObject {sequence: 7 as u64, frequency: 1 });
+        b.btree_insert(TreeObject {sequence: 97 as u64, frequency: 1 });
+        b.btree_insert(TreeObject {sequence: 73 as u64, frequency: 1 });
         // split
-        b.btree_insert(TreeObject {sequence: 67 as u32, frequency: 1 });
-        b.btree_insert(TreeObject {sequence: 19 as u32, frequency: 1 });
-        b.btree_insert(TreeObject {sequence: 79 as u32, frequency: 1 });
-        b.btree_insert(TreeObject {sequence: 61 as u32, frequency: 1 });
-        b.btree_insert(TreeObject {sequence: 41 as u32, frequency: 1 });
+        b.btree_insert(TreeObject {sequence: 67 as u64, frequency: 1 });
+        b.btree_insert(TreeObject {sequence: 19 as u64, frequency: 1 });
+        b.btree_insert(TreeObject {sequence: 79 as u64, frequency: 1 });
+        b.btree_insert(TreeObject {sequence: 61 as u64, frequency: 1 });
+        b.btree_insert(TreeObject {sequence: 41 as u64, frequency: 1 });
         assert_eq!(10, b.get_size());
         assert_eq!(1, b.get_height());
         assert!(validate_btree_inserts(b, input));
@@ -418,19 +418,19 @@ mod tests {
         delete_file(file_name);
         let mut b: BTree = btree(3, file_name); // Chould split at 5 keys
         let input = vec![7, 19, 23, 41, 59, 61, 67, 73, 74, 79, 97];
-        b.btree_insert(TreeObject {sequence: 59 as u32, frequency: 1 });
-        b.btree_insert(TreeObject {sequence: 23 as u32, frequency: 1 });
-        b.btree_insert(TreeObject {sequence: 7 as u32, frequency: 1 });
-        b.btree_insert(TreeObject {sequence: 97 as u32, frequency: 1 });
-        b.btree_insert(TreeObject {sequence: 73 as u32, frequency: 1 });
+        b.btree_insert(TreeObject {sequence: 59 as u64, frequency: 1 });
+        b.btree_insert(TreeObject {sequence: 23 as u64, frequency: 1 });
+        b.btree_insert(TreeObject {sequence: 7 as u64, frequency: 1 });
+        b.btree_insert(TreeObject {sequence: 97 as u64, frequency: 1 });
+        b.btree_insert(TreeObject {sequence: 73 as u64, frequency: 1 });
         // split
-        b.btree_insert(TreeObject {sequence: 67 as u32, frequency: 1 });
-        b.btree_insert(TreeObject {sequence: 19 as u32, frequency: 1 });
-        b.btree_insert(TreeObject {sequence: 79 as u32, frequency: 1 });
-        b.btree_insert(TreeObject {sequence: 61 as u32, frequency: 1 });
-        b.btree_insert(TreeObject {sequence: 41 as u32, frequency: 1 });
+        b.btree_insert(TreeObject {sequence: 67 as u64, frequency: 1 });
+        b.btree_insert(TreeObject {sequence: 19 as u64, frequency: 1 });
+        b.btree_insert(TreeObject {sequence: 79 as u64, frequency: 1 });
+        b.btree_insert(TreeObject {sequence: 61 as u64, frequency: 1 });
+        b.btree_insert(TreeObject {sequence: 41 as u64, frequency: 1 });
         // split
-        b.btree_insert(TreeObject {sequence: 74 as u32, frequency: 1 });
+        b.btree_insert(TreeObject {sequence: 74 as u64, frequency: 1 });
 
         assert_eq!(11, b.get_size());
         assert_eq!(1, b.get_height());
@@ -447,7 +447,7 @@ mod tests {
         let mut input = Vec::new();
         for i in 0..10 {
             input.push(i);
-            b.btree_insert(TreeObject {sequence: i as u32, frequency: 1 })
+            b.btree_insert(TreeObject {sequence: i as u64, frequency: 1 })
         }
         assert_eq!(10, b.get_size());
         assert_eq!(2, b.get_height());
@@ -465,7 +465,7 @@ mod tests {
         let mut input = Vec::new();
         for i in (0..10).rev() {
             input.push(i);
-            b.btree_insert(TreeObject {sequence: i as u32, frequency: 1 })
+            b.btree_insert(TreeObject {sequence: i as u64, frequency: 1 })
         }
         input.reverse();
         assert_eq!(10, b.get_size());

@@ -57,8 +57,8 @@ impl Node {
 
 #[derive(Clone, Copy, Debug, Eq)]
 pub struct TreeObject {
-    pub sequence: u32,
-    pub frequency: u32,
+    pub sequence: u64,
+    pub frequency: u64,
 }
 
 impl PartialEq for TreeObject {
@@ -80,7 +80,7 @@ impl Ord for TreeObject {
 }
 
 impl TreeObject{
-    pub fn new(sequence: u32, frequency: u32) -> Self {
+    pub fn new(sequence: u64, frequency: u64) -> Self {
         TreeObject {sequence, frequency}
     }
 
