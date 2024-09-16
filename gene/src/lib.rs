@@ -1,33 +1,37 @@
 
+type GeneSeq = u64;
+
 /// Change sequence of gene's to binary.
-pub fn sequence_to_bin(sequence: &str) -> u32 {
+pub fn sequence_to_bin(sequence: &str) -> GeneSeq {
     
-    let binary : Vec<u32> = sequence.chars().map(| x | {
-        let b: u32 = gene_to_bin(x) as u32;
+    let binary : Vec<GeneSeq> = sequence.chars().map(| x | {
+        let b: GeneSeq = gene_to_bin(x) as GeneSeq;
         b
     }).collect();
-    let mut bin_sequence: u32 = 0;
+    let mut bin_sequence = 0;
     for i in binary.iter() {
         if bin_sequence == 0 {
             bin_sequence = *i;
         } else {
             bin_sequence = bin_sequence << 2;
-            bin_sequence = bin_sequence & i;
+            bin_sequence = bin_sequence | i;
         }
     }
     bin_sequence
 }
 
-pub fn sequence_from_bin(bin_sequence: u32) -> String {
+/// Change sequence of gene's back from binary to chars
+pub fn sequence_from_bin(bin_sequence: GeneSeq, sequence_len: u8) -> String {
     let mut sequence = "".to_string();
-    for i in 0..16 {
+    for i in 0..sequence_len {
         let gene_bits = ((bin_sequence >> (2 * i)) & 0b11) as u8;
-        let gene = gene_from_bin(gene_bits);
-        sequence.push(gene);
+        let gene = gene_from_bin(gene_bits).to_ascii_uppercase();
+        sequence.insert(0, gene);
     }
     sequence
 }
 
+/// Get binary representation of gene char
 pub fn gene_to_bin(gene: char) -> u8 {
     match gene.to_ascii_lowercase() {
         'a' => 0b00,
@@ -38,6 +42,7 @@ pub fn gene_to_bin(gene: char) -> u8 {
     }
 }
 
+/// Get char representation of gene in binary
 pub fn gene_from_bin(gene_bin: u8) -> char {
     match gene_bin {
         0b00 => 'a',
@@ -48,6 +53,7 @@ pub fn gene_from_bin(gene_bin: u8) -> char {
     }
 }
 
+/// Get Gene's complement
 pub fn gene_complement(gene: char) -> char {
     match gene.to_ascii_lowercase() {
         'a' => 't',
@@ -58,6 +64,7 @@ pub fn gene_complement(gene: char) -> char {
     }
 }
 
+/// Get sequence of gene complements
 pub fn sequence_complement(gene: &str) -> String {
     let gene_chars = gene.chars();
     gene_chars.map(| x | gene_complement(x)).collect()
@@ -93,14 +100,14 @@ mod tests {
     #[test]
     fn test_sequence_to_bin() {
         let seq = "ACTTG";
-        let seq_bin_expected = 0b0001111110u32;
+        let seq_bin_expected = 0b0001111110;
         assert_eq!(seq_bin_expected, sequence_to_bin(seq));
     }
 
     #[test]
     fn test_sequence_from_bin() {
-        let seq_bin = 0b0001111110u32;
+        let seq_bin = 0b0001111110;
         let seq_expected = "ACTTG";
-        assert_eq!(seq_expected, sequence_from_bin(seq_bin));
+        assert_eq!(seq_expected, sequence_from_bin(seq_bin, 5));
     }
 }
