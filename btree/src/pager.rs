@@ -48,9 +48,9 @@ impl Pager {
         file.flush().unwrap();
     }
 
-    pub fn read_metadata(&mut self) -> (u32, u32) {
+    pub fn read_metadata(&mut self) -> Result<(u32, u32), std::io::Error >  {
         let path = Path::new(&self.file_name);
-        let mut file = File::open(path).unwrap();
+        let mut file = File::open(path)?;
         let mut buf = [0u8; 4];
         file.seek(SeekFrom::Start(0)).unwrap();
         // Root Offset
@@ -59,7 +59,7 @@ impl Pager {
         // degree
         file.read_exact(&mut buf).unwrap();
         let degree = u32::from_be_bytes(buf);
-        (root_offset, degree)
+        Ok((root_offset, degree))
     }
 
     pub fn write(&mut self, node: &Node) {
@@ -166,9 +166,12 @@ impl Pager {
         }
     }
 
-    pub fn get_root_offset(&mut self) -> u32 {
-        let (root_offset, _degree) = self.read_metadata();
-        root_offset
+    pub fn get_root_offset(&mut self) -> Result<u32, std::io::Error> {
+        let meta = match self.read_metadata() {
+            Ok(meta)  => meta,
+            Err(e) => return Err(e),
+        };
+        Ok(meta.0)
     }
 
 }
@@ -191,7 +194,7 @@ mod tests {
         let expected_root_offset = 10;
         let expected_degree = 10;
         pager.write_metadata(expected_root_offset, expected_degree);
-        let (actual_root_offset, actual_degree) = pager.read_metadata();
+        let (actual_root_offset, actual_degree) = pager.read_metadata().unwrap();
         assert_eq!(expected_root_offset, actual_root_offset);
         assert_eq!(expected_degree, actual_degree);
         delete_file(file_name);
@@ -246,7 +249,7 @@ mod tests {
                 let actual_node = pager.read(expected_node.offset);
                 assert_eq!(expected_node, actual_node);
             }
-            let (actual_offset, actual_degree ) = pager.read_metadata();
+            let (actual_offset, actual_degree ) = pager.read_metadata().unwrap();
             assert_eq!(8, actual_offset);
             assert_eq!(1, actual_degree);
             delete_file(file_name);

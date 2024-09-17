@@ -15,23 +15,22 @@ pub struct BTree {
 
 impl BTree {
     pub fn new(sequence_length: u32, degree: u32, file_name: &str, use_cache: bool, cache_size: u32) -> BTree {
-        let mut btree = BTree {
+        let btree = BTree {
             degree,
             number_of_nodes: 1,
             number_of_keys: 0,
             height: 0,
             pager: Pager::new(&file_name, use_cache, cache_size, degree).unwrap(),
         };
-        // Create Root node
-        let mut root_node = Node::new();
-        btree.pager.write_metadata(root_node.offset, degree);
-        root_node.offset = btree.pager.file_cursor;
-        btree.pager.write(&root_node);
         btree
     }
 
     pub fn btree_search_root(&mut self, key: TreeObject) -> Option<TreeObject> {
-        let offset = self.pager.get_root_offset();
+        // If no offset is found, due to empty file return null
+        let offset = match self.pager.get_root_offset() {
+            Ok(offset)  => offset,
+            Err(_) => return None,
+        };
         let root_node = self.pager.read(offset);
         self.btree_search(root_node, key)
     }
@@ -73,14 +72,24 @@ impl BTree {
 
     pub fn get_sorted_array(&mut self) -> Vec<TreeObject> {
         let mut sorted_keys: Vec<TreeObject> = Vec::new();
-        let root_offset = self.pager.get_root_offset() as u32;
+        // If no offset is found, due to empty file return empty Vec
+        // TODO or return None it might be better.
+        let root_offset = match self.pager.get_root_offset() {
+            Ok(root_offset)  => root_offset,
+            Err(_) => return vec![],
+        };
         self.btree_in_order_traversal(Some(root_offset), &mut sorted_keys);
         sorted_keys
     }
 
     pub fn get_sorted_key_array(&mut self) -> Vec<u64> {
         let mut sorted_keys: Vec<TreeObject> = Vec::new();
-        let root_offset = self.pager.get_root_offset() as u32;
+        // If no offset is found, due to empty file return empty Vec
+        // TODO or return None it might be better.
+        let root_offset = match self.pager.get_root_offset() {
+            Ok(root_offset)  => root_offset,
+            Err(_) => return vec![],
+        };
         self.btree_in_order_traversal(Some(root_offset), &mut sorted_keys);
         sorted_keys.iter().map(| x | x.sequence ).collect()
     }
@@ -114,7 +123,22 @@ impl BTree {
 
     /// Inserts a node into the BTree
     pub fn btree_insert(&mut self, key: TreeObject){
-        let (root_offset, degree) = self.pager.read_metadata();
+        // If no offset is found, due to empty catch error
+        // and return degree and offset that would be set for first node
+        let meta = match self.pager.read_metadata() {
+            Ok(meta)  => meta,
+            Err(_) => {
+                // Create Root node
+                let mut root_node = Node::new();
+                self.pager.write_metadata(root_node.offset, self.degree);
+                root_node.offset = self.pager.file_cursor;
+                root_node.is_leaf = true;
+                self.pager.write(&root_node);
+                (root_node.offset, self.degree)
+            },
+        };
+        let root_offset = meta.0;
+        let degree = meta.1;
         let mut root_node = self.pager.read(root_offset);
         if root_node.keys.len() as u32 == self.maximum_keys() {
             self.height += 1;
@@ -462,12 +486,11 @@ mod tests {
         delete_file(file_name);
     }
 
-    // /**
-    //  * Ten keys (10 -> 1) inserted into a BTree of degree 2.
-    //  */
+    //Ten keys (10 -> 1) inserted into a BTree of degree 2.
     #[test]
     fn test_insert_10_keys_reverse_order() {
         let file_name = "test_insert_10_keys_reverse_order.tmp";
+        delete_file(file_name);
         let mut b: BTree = btree(2, file_name);
         let mut input = Vec::new();
         for i in (0..10).rev() {
@@ -477,16 +500,16 @@ mod tests {
         input.reverse();
         assert_eq!(10, b.get_size());
         assert_eq!(2, b.get_height());
-        assert!(validate_btree_inserts(b, input))
+        assert!(validate_btree_inserts(b, input));
+        delete_file(file_name);
     }
 
-    // /**
-    //  * Tests that adding duplicate key values to the tree doesn't create
-    //  * duplicates within the tree.
-    //  */
+    //Tests that adding duplicate key values to the tree doesn't create
+    //duplicates within the tree.
     #[test]
     fn test_insert_10_duplicates() {
         let file_name = "test_insert_10_duplicates.tmp";
+        delete_file(file_name);
         let mut b: BTree = btree(2, file_name);
         let input = vec![1,1,1,1,1,1,1,1,1,1];
         for _ in 0..10 {
@@ -495,7 +518,8 @@ mod tests {
 
         assert_eq!(1, b.get_size());
         assert_eq!(0, b.get_height());
-        assert!(validate_btree_inserts(b, input))
+        assert!(validate_btree_inserts(b, input));
+        delete_file(file_name);
     }
 
 }
