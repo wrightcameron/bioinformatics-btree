@@ -13,7 +13,6 @@ struct Cli {
     /// the degree to be used for the B-Tree. If the user specifies 0, then our program should choose the optimum degree based on a disk block size of 4096 bytes and the size of our B-Tree node on disk
     #[arg(short, long, default_value_t = 0)]
     degree: u32,
-    
     /// input btreefile file containing the input DNA sequences in Btree
     #[arg(short, long)]
     btreefile: String,
@@ -43,7 +42,6 @@ fn main() {
     if sequence_length < 1 || sequence_length > 31 {
         panic!("Sequence Length has to be between 1 - 31.")
     }
-    let debug = cli.debug.unwrap_or(0);
 
     let use_cache = cache == 0;
     if cli.debug.unwrap_or(0) == 1 {
@@ -63,12 +61,21 @@ fn main() {
     let mut btree = BTree::new(sequence_length, degree, &btreefile, use_cache, cache_size);
     let query_string = fs::read_to_string(queryfile).expect("Couldn't read file ({gbk_file})");
     for sequence in query_string.lines() {
-        let sequence_bin = gene::sequence_to_bin(sequence);
-        let key = TreeObject {sequence: sequence_bin, frequency: 0 };
-        // TODO Right here we should handle the None option and print sequence along with either 0 frequency or n/a
-        match btree.btree_search_root(key) {
-            Some(found_key) => println!("{} {}", sequence, found_key.frequency),
-            None => println!("{} {}", sequence, key.frequency),
-        }
+        let complement = gene::sequence_complement(sequence);
+        let frequency = get_gene_sequence_frequency(&mut btree, sequence) + get_gene_sequence_frequency(&mut btree, &complement);
+        println!("{sequence} {frequency}");
+    }
+}
+
+/// Handle building TreeObject, invoking btree, and handling if nothing is returned
+fn get_gene_sequence_frequency(btree: &mut BTree, sequence: &str) -> u64 {
+    let sequence_bin = gene::sequence_to_bin(sequence);
+    let key = TreeObject {sequence: sequence_bin, frequency: 0 };
+    match btree.btree_search_root(key) {
+        Some(found_key) => found_key.frequency,
+        None => {
+            log::info!("{sequence} wasn't found in btree.");
+            0
+        },
     }
 }

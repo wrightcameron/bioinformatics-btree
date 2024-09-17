@@ -45,24 +45,26 @@ fn main() {
     }
     // If debug true, the dump file will want to be created.
     let debug = cli.debug.unwrap_or(0) == 1;
-        // std::env::set_var("RUST_LOG", "debug");
-        // env_logger::init();
+    if debug {
+        std::env::set_var("RUST_LOG", "debug");
+        env_logger::init();
+    }
     // Check if gbk file exists, if it doesn't panic/exit
     if ! Path::new(&gbk_file).exists() {
         println!("{gbk_file} not found.");
         std::process::exit(1);
     }
-    // TODO Combine with if file exists above cause function returns None if not found.
     // Scan gbk file
     let dna_sequences = parse_gbk(&gbk_file).expect("No Sequences found");
     // Get sequences into lengths
     let chunk_sequences: Vec<String> = dna_sequences.iter().map(| x | {
         x.chars().collect::<Vec<char>>()
-            .chunks(sequence_length as usize)
+            .windows(sequence_length as usize)
             .map(| c | c.iter().collect::<String>())
             .collect::<Vec<String>>()
     }).collect::<Vec<Vec<String>>>().concat();
-    log::debug!("Here {:?}", chunk_sequences);
+    // Create's too much noise in log if printing vec.
+    log::debug!("All Moving Window slices found {:?}", chunk_sequences.len());
     let use_cache = cache == 0;
     let output_file = format!("{gbk_file}.btree.data.{sequence_length}.{degree}");
     //Create BTree Object
@@ -70,7 +72,7 @@ fn main() {
     for i in chunk_sequences.iter() {
         // Change sequence of gene's to binary.
         let bin_sequence = gene::sequence_to_bin(i);
-        let obj = TreeObject { sequence: bin_sequence, frequency: 0};
+        let obj: TreeObject = TreeObject { sequence: bin_sequence, frequency: 1};
         btree.btree_insert(obj);
     }
     // If debug True, create dump file with gene sequences and frequencies
@@ -107,6 +109,6 @@ fn parse_gbk(gbk_file: &str) -> Option<Vec<String>> {
         };
         res
     }).flatten().collect();
-    log::debug!("Sequences found {:?}", sequences);
+    log::debug!("Sequences found {:?}", sequences.len());
     if sequences.len() == 0 { None } else { Some(sequences)}
 }

@@ -37,3 +37,5 @@ maximum number of `BTreeNode` objects that can be stored in memory
 ### Usage Examples
 
 `cargo run -- -g ../data/geneBankFiles/test0.gbk`
+
+`cargo run -- --cache=1 --degree=0 --gbkfile=../data/geneBankFiles/test0.gbk --length=2 --cachesize=5000 --debug=1`
