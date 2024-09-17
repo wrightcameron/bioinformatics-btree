@@ -14,7 +14,11 @@ pub struct BTree {
 }
 
 impl BTree {
-    pub fn new(sequence_length: u32, degree: u32, file_name: &str, use_cache: bool, cache_size: u32) -> BTree {
+    pub fn new(sequence_length: u32, mut degree: u32, file_name: &str, use_cache: bool, cache_size: u32) -> BTree {
+        // If degree is 0, set degree to most optimal for 4096 bytes
+        if degree == 0 {
+            degree = 102;
+        }
         let btree = BTree {
             degree,
             number_of_nodes: 1,
@@ -38,10 +42,10 @@ impl BTree {
     /// Searches the BTree for the TreeObject given as an argument
     pub fn btree_search(&mut self, given_root: Node, key: TreeObject) -> Option<TreeObject> {
         let mut index = 0;
-        while index <= given_root.keys.len() && key > *given_root.keys.get(index).unwrap() {
+        while index < given_root.keys.len() && key > *given_root.keys.get(index).unwrap() {
             index += 1;
         }
-        if index <= given_root.keys.len() && key == *given_root.keys.get(index).unwrap() {
+        if index < given_root.keys.len() && key == *given_root.keys.get(index).unwrap() {
             return Some(given_root.keys.get(index).unwrap().clone());
         } else if given_root.is_leaf() {
             return None
