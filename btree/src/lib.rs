@@ -71,6 +71,13 @@ impl BTree {
         }
     }
 
+    pub fn get_sorted_array(&mut self) -> Vec<TreeObject> {
+        let mut sorted_keys: Vec<TreeObject> = Vec::new();
+        let root_offset = self.pager.get_root_offset() as u32;
+        self.btree_in_order_traversal(Some(root_offset), &mut sorted_keys);
+        sorted_keys
+    }
+
     pub fn get_sorted_key_array(&mut self) -> Vec<u64> {
         let mut sorted_keys: Vec<TreeObject> = Vec::new();
         let root_offset = self.pager.get_root_offset() as u32;

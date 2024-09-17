@@ -60,7 +60,7 @@ fn main() {
     let mut btree = BTree::new(sequence_length, degree, &btreefile, use_cache, cache_size);
     let query_string = fs::read_to_string(queryfile).expect("Couldn't read file ({gbk_file})");
     for sequence in query_string.lines() {
-        let sequence_bin = gene::to_u32(sequence);
+        let sequence_bin = gene::sequence_to_bin(sequence);
         let mut key = TreeObject {sequence: sequence_bin, frequency: 0 };
         key = btree.btree_search_root(key).unwrap();
         println!("{} {}", sequence, key.frequency);

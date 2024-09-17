@@ -1,7 +1,9 @@
 use clap::Parser;
 use regex::Regex;
 use std::fs;
+use std::io::Write;
 use std::path::Path;
+use std::fs::File;
 use btree::BTree;
 use btree::btree_node::TreeObject;
 use gene;
@@ -34,14 +36,22 @@ fn main() {
     // cli args
     let cli = Cli::parse();
     let cache = cli.cache;
-    let degree = cli.degree;
     let gbk_file = cli.gbkfile;
     let sequence_length = cli.length;
     let cache_size = cli.cachesize.unwrap_or(100);
-    if cli.debug.unwrap_or(0) == 1 {
-        std::env::set_var("RUST_LOG", "debug");
-        env_logger::init();
+    // If degree is 0, set degree to most optimal for 4096 bytes
+    let degree = if cli.degree <= 0 {
+        102 
+    } else {
+        cli.degree
+    };
+    if sequence_length < 1 || sequence_length > 31 {
+        panic!("Sequence Length has to be between 1 - 31.")
     }
+    // If debug true, the dump file will want to be created.
+    let debug = cli.debug.unwrap_or(0) == 1;
+        // std::env::set_var("RUST_LOG", "debug");
+        // env_logger::init();
     // Check if gbk file exists, if it doesn't panic/exit
     if ! Path::new(&gbk_file).exists() {
         println!("{gbk_file} not found.");
@@ -64,11 +74,19 @@ fn main() {
     let mut btree = BTree::new(sequence_length, degree, &output_file, use_cache, cache_size);
     for i in chunk_sequences.iter() {
         // Change sequence of gene's to binary.
-        let bin_sequence = gene::to_u32(i);
+        let bin_sequence = gene::sequence_to_bin(i);
         let obj = TreeObject { sequence: bin_sequence, frequency: 0};
         btree.btree_insert(obj);
     }
-    println!("Finished");
+    // If debug True, create dump file with gene sequences and frequencies
+    if debug {
+        let key_array = btree.get_sorted_array();
+        let mut file = File::create("dump").unwrap();
+        for key in key_array.iter() {
+            let line = format!("{} {}\n", gene::sequence_from_bin(key.sequence, sequence_length as u8), key.frequency);
+            file.write(line.as_bytes()).unwrap();
+        }
+    }
 }
 
 /// Parse the GBK file for DNA sequences
