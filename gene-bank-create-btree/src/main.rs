@@ -36,15 +36,10 @@ fn main() {
     // cli args
     let cli = Cli::parse();
     let cache = cli.cache;
+    let degree = cli.degree;
     let gbk_file = cli.gbkfile;
     let sequence_length = cli.length;
     let cache_size = cli.cachesize.unwrap_or(100);
-    // If degree is 0, set degree to most optimal for 4096 bytes
-    let degree = if cli.degree <= 0 {
-        102 
-    } else {
-        cli.degree
-    };
     if sequence_length < 1 || sequence_length > 31 {
         panic!("Sequence Length has to be between 1 - 31.")
     }

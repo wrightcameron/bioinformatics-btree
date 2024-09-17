@@ -40,6 +40,9 @@ fn main() {
     let degree = cli.degree;
     let cache = cli.cache;
     let cache_size = cli.cachesize.unwrap_or(100);
+    if sequence_length < 1 || sequence_length > 31 {
+        panic!("Sequence Length has to be between 1 - 31.")
+    }
     let debug = cli.debug.unwrap_or(0);
 
     let use_cache = cache == 0;
@@ -61,8 +64,11 @@ fn main() {
     let query_string = fs::read_to_string(queryfile).expect("Couldn't read file ({gbk_file})");
     for sequence in query_string.lines() {
         let sequence_bin = gene::sequence_to_bin(sequence);
-        let mut key = TreeObject {sequence: sequence_bin, frequency: 0 };
-        key = btree.btree_search_root(key).unwrap();
-        println!("{} {}", sequence, key.frequency);
+        let key = TreeObject {sequence: sequence_bin, frequency: 0 };
+        // TODO Right here we should handle the None option and print sequence along with either 0 frequency or n/a
+        match btree.btree_search_root(key) {
+            Some(found_key) => println!("{} {}", sequence, found_key.frequency),
+            None => println!("{} {}", sequence, key.frequency),
+        }
     }
 }

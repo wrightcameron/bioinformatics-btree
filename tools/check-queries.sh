@@ -1,6 +1,7 @@
 #!/bin/sh
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 BUILD_DIR=$SCRIPT_DIR/../target/debug
+GBK_FILES=$SCRIPT_DIR/../data/geneBankFiles
 QUERIES_DIR=$SCRIPT_DIR/../data/queries
 QUERY_RESULTS_DIR=$SCRIPT_DIR/../results/query-results
 
@@ -13,13 +14,13 @@ datafile=$1
 for i in 1 2 3 4 5 6 7 8 9 10 20 31
 do
 	echo "\nRunning queryfile " query$i "on $datafile.btree.data.$i.0\n"
-	time -p $BUILD_DIR/gene-bank-search-btree --cache=0 --degree=0 --btreefile=$datafile.btree.data.$i.0 --length=$i --queryfile=$QUERIES_DIR/query$i --debug=0  > $QUERIES_DIR/query$i-$datafile.out
+	time -p $BUILD_DIR/gene-bank-search-btree --cache=0 --degree=0 --btreefile=$GBK_FILES/$datafile.btree.data.$i.0 --length=$i --queryfile=$QUERIES_DIR/query$i --debug=0  > $QUERIES_DIR/query$i-$datafile.out
 done
 echo
 
 for i in 1 2 3 4 5 6 7 8 9 10 20 31
 do
-	diff -q -w $QUERIES_DIR/query$i-$datafile.out $QUERY_RESULTS_DIR/query$i-$datafile.out
+	diff --ignore-case -w $QUERIES_DIR/query$i-$datafile.out $QUERY_RESULTS_DIR/query$i-$datafile.out
 	if test "$?" = "0"; then
 		echo "----> Query-Test-$i PASSED!"
 	else
