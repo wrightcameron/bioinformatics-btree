@@ -11,6 +11,7 @@ esac
 datafile=$1
 for i in 1 2 3 4 5 6 7 8 9 10 20 31
 do
+	echo "Running: gene-bank-create-btree --cache=1 --degree=0 --gbkfile=$GBK_FILES/$datafile --length=$i --cachesize=5000 --debug=1"
 	time $BUILD_DIR/gene-bank-create-btree --cache=1 --degree=0 --gbkfile=$GBK_FILES/$datafile --length=$i --cachesize=5000 --debug=1
 	mv dump $datafile.dump.$i
 done

@@ -186,37 +186,23 @@ impl BTree {
             while index >= 1 && key < *given_root.keys.get(index as usize - 1).unwrap() {
                 index -= 1;
             }
-            index += 1;
-            let mut child: Node = self.pager.read(*given_root.children_ptrs.get(index as usize - 1).unwrap());
-            if child.keys.len() == (2 * self.degree as usize) - 1 {
-                self.btree_split_child(given_root, index as u32 - 1);
-                if key > *given_root.keys.get(index as usize - 1).unwrap() {
-                    index += 1;
+            if index >= 1 && key == *given_root.keys.get(index as usize - 1).unwrap() {
+                given_root.keys.get_mut(index as usize - 1).unwrap().increase_frequency();
+                self.pager.write(&given_root);
+            } else {
+                index += 1;
+                let mut child: Node = self.pager.read(*given_root.children_ptrs.get(index as usize - 1).unwrap());
+                if child.keys.len() == (2 * self.degree as usize) - 1 {
+                    self.btree_split_child(given_root, index as u32 - 1);
+                    if key > *given_root.keys.get(index as usize - 1).unwrap() {
+                        index += 1;
+                    }
+                    // Refresh the child node, which was changed from the split
+                    child = self.pager.read(*given_root.children_ptrs.get(index as usize - 1).unwrap());
                 }
-                // Refresh the child node, which was changed from the split
-                child = self.pager.read(*given_root.children_ptrs.get(index as usize - 1).unwrap());
+                self.btree_insert_non_full(&mut child, key);
             }
-            self.btree_insert_non_full(&mut child, key);
-            // if index > 0 && key == *given_root.keys.get(index - 1).unwrap() {
-            //     given_root.keys.get_mut(index - 1).unwrap().increase_frequency();
-            //     self.pager.write(&given_root);
-            //     self.number_of_keys += 1;
-            // } else {
-            //     while index >= 0 && key < *given_root.keys.get(index).unwrap() {
-            //         index -= 1;
-            //     }
-            //     index += 1;
-            //     let mut child: Node = self.pager.read(*given_root.children_ptrs.get(index - 1).unwrap());
-            //     if child.keys.len() == (2 * self.degree as usize) - 1 {
-            //         self.btree_split_child(given_root, index
-                        
-            //              as u32);
-            //         if key > *given_root.keys.get(index - 1).unwrap() {
-            //             index += 1;
-            //         }
-            //     }
-            //     self.btree_insert_non_full(&mut child, key)
-            // }
+
         }
     }
 
