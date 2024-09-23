@@ -81,6 +81,7 @@ name = "btree"
 version = "0.1.0"
 dependencies = [
  "bit-struct",
+ "log",
  "rand",
 ]
 

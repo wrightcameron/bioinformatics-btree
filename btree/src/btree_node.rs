@@ -14,7 +14,7 @@ impl Default for Node {
         Node {
         number_of_keys: 0,
         is_leaf: true,
-        offset: 0,
+        offset: 8,
         keys: Vec::new(),
         children_ptrs: Vec::new(),
         }
@@ -41,12 +41,10 @@ impl Node {
     }
 
     pub fn is_leaf(&self) -> bool {
-        // self.children_ptrs.len() == 0
         self.is_leaf
     }
 
     pub fn number_of_keys(&self) -> u32 {
-        // self.keys.len() as u32
         self.number_of_keys
     }
 

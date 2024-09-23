@@ -1,38 +1,32 @@
-use std::fs::File;
+use std::fs::{File, remove_file};
 use std::path::Path;
 use std::fs::OpenOptions;
 use std::io::{Read, Seek, Write};
 use std::io::SeekFrom;
 use crate::btree_node::Node;
-use crate::btree_cache::BTreeCache;
 use crate::TreeObject;
 
 const DISK_BLOCK_SIZE: u32 = 4096;
+pub const STARTING_OFFSET: u32 = 8;
 
 pub struct Pager {
     pub file_cursor: u32,
     file: File,
-    cache: Option<BTreeCache<u32>>,
     degree: u32,
 }
 
 impl Pager {
-    pub fn new(file_name: &str, use_cache: bool, cache_size: u32, degree: u32) -> Result<Pager, std::io::Error> {
-        let cache = if use_cache {
-            Some(BTreeCache::new(cache_size) )
-        } else {
-            None
-        };
-        let file_cursor = 0;
+    //TODO Remove truncate as we are hanlding in btree constructor now
+    pub fn new(file_name: &str, degree: u32, truncate_file: bool) -> Result<Pager, std::io::Error> {
         let path = Path::new(file_name);
-        //TODO Handle deleting the file when creating a new btree, but don't do it for all cause we don't want to delete the btree on search
+        // Delete file if truncate_file is set to true, cause rerunning tests with non deleted files results in incorrect outputs
+        let file_cursor = 8;
         let file = OpenOptions::new()
             .read(true)
             .write(true)
             .create(true)
             .open(path).unwrap();
-        let pager = Pager { file_cursor, file, cache, degree };
-        Ok(pager)
+        Ok(Pager { file_cursor, file, degree })
     }
 
     // TODO Need to return an offset, set the offset counter correctly.
@@ -60,8 +54,6 @@ impl Pager {
     }
 
     pub fn write(&mut self, node: &Node) {
-        // OpenOptions::new().append(true)
-        // let mut write_buffer = BufWriter::new(file);
         let move_cursor = node.offset >= self.file_cursor;
         // Write node to disk
         // Offset
@@ -163,6 +155,29 @@ impl Pager {
         Ok(meta.0)
     }
 
+    pub fn read_root(&mut self) -> Result<Node, std::io::Error> {
+        let offset = self.get_root_offset()?;
+        Ok(self.read(offset))
+    }
+
+    pub fn recreate_file(&mut self, file_name: &str, degree: u32, node: &Node) -> u32 {
+        let path = Path::new(file_name);
+        if Path::new(path).exists() {
+            remove_file(path).expect("Unable to remove file.");
+        }
+        // Recreate file handler, otherwise writing into void
+        self.file = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .open(path).unwrap();
+        self.write_metadata(STARTING_OFFSET, degree);
+        //TODO Node here isn't set correctly to offset of 8, should fix - temp fix is setting it in node struct temp
+        assert!(self.file_cursor == STARTING_OFFSET);
+        self.write(node);
+        STARTING_OFFSET
+    }
+
 }
 
 #[cfg(test)]
@@ -179,7 +194,7 @@ mod tests {
     fn test_pager_metadata() {
         let file_name = "test_pager_metadata.tmp";
         delete_file(file_name);
-        let mut pager = Pager::new(file_name, false, 0, 1).unwrap();
+        let mut pager = Pager::new(file_name, 1, true).unwrap();
         let expected_root_offset = 10;
         let expected_degree = 10;
         pager.write_metadata(expected_root_offset, expected_degree);
@@ -193,7 +208,7 @@ mod tests {
         fn test_pager_write_read_1_node() {
             let file_name = "test_pager_write_read_1_node.tmp";
             delete_file(file_name);
-            let mut pager = Pager::new(file_name, false, 0, 1).unwrap();
+            let mut pager = Pager::new(file_name, 1, true).unwrap();
             let expected_node = Node::new();
             pager.write(&expected_node);
             let actual_node = pager.read(expected_node.offset);
@@ -205,7 +220,7 @@ mod tests {
         fn test_pager_write_read_2_node() {
             let file_name = "test_pager_write_read_2_node.tmp";
             delete_file(file_name);
-            let mut pager = Pager::new(file_name, false, 0, 1).unwrap();
+            let mut pager = Pager::new(file_name, 1, true).unwrap();
             let mut nodes: Vec<Node> = Vec::new();
             for _ in 0..2 {
                 let mut node = Node::new();
@@ -224,7 +239,7 @@ mod tests {
         fn test_pager_metadata_10_nodes(){
             let file_name = "test_pager_metadata_10_nodes.tmp";
             delete_file(file_name);
-            let mut pager = Pager::new(file_name, false, 0, 1).unwrap();
+            let mut pager = Pager::new(file_name, 1, true).unwrap();
             pager.file_cursor = 8;
             pager.write_metadata(8, 1);
             let mut nodes: Vec<Node> = Vec::new();

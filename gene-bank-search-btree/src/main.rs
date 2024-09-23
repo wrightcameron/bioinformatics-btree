@@ -58,11 +58,13 @@ fn main() {
         println!("{queryfile} not found.");
         std::process::exit(1);
     }
-    let mut btree = BTree::new(sequence_length, degree, &btreefile, use_cache, cache_size);
+    let mut btree = BTree::new(degree, &btreefile, use_cache, cache_size, false);
     let query_string = fs::read_to_string(queryfile).expect("Couldn't read file ({gbk_file})");
     for sequence in query_string.lines() {
+        let sequence_frequency = get_gene_sequence_frequency(&mut btree, sequence);
         let complement = gene::sequence_complement(sequence);
-        let frequency = get_gene_sequence_frequency(&mut btree, sequence) + get_gene_sequence_frequency(&mut btree, &complement);
+        let complement_frequency = get_gene_sequence_frequency(&mut btree, &complement);
+        let frequency = sequence_frequency + complement_frequency;
         println!("{sequence} {frequency}");
     }
 }

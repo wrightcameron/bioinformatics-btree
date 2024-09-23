@@ -68,7 +68,7 @@ fn main() {
     let use_cache = cache == 0;
     let output_file = format!("{gbk_file}.btree.data.{sequence_length}.{degree}");
     //Create BTree Object
-    let mut btree = BTree::new(sequence_length, degree, &output_file, use_cache, cache_size);
+    let mut btree = BTree::new(degree, &output_file, use_cache, cache_size, true);
     for i in chunk_sequences.iter() {
         // Change sequence of gene's to binary.
         let bin_sequence = gene::sequence_to_bin(i);
