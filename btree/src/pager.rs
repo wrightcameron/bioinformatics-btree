@@ -3,6 +3,7 @@ use std::path::Path;
 use std::fs::OpenOptions;
 use std::io::{Read, Seek, Write};
 use std::io::SeekFrom;
+use std::io::{BufWriter, BufReader};
 use crate::btree_node::Node;
 use crate::TreeObject;
 
@@ -35,48 +36,52 @@ impl Pager {
             root_offset = 8;
             self.file_cursor += 8;
         }
-        self.file.seek(SeekFrom::Start(0)).unwrap();
-        self.file.write_all(&root_offset.to_be_bytes()).unwrap();
-        self.file.write_all(&degree.to_be_bytes()).unwrap();
-        self.file.flush().unwrap();
+        let mut buf_write = BufWriter::new(&self.file);
+        buf_write.seek(SeekFrom::Start(0)).unwrap();
+        buf_write.write_all(&root_offset.to_be_bytes()).unwrap();
+        buf_write.write_all(&degree.to_be_bytes()).unwrap();
+        buf_write.flush().unwrap();
     }
 
     pub fn read_metadata(&mut self) -> Result<(u32, u32), std::io::Error >  {
+        let mut buf_read = BufReader::new(&self.file);
         let mut buf = [0u8; 4];
-        self.file.seek(SeekFrom::Start(0))?;
+        buf_read.seek(SeekFrom::Start(0))?;
         // Root Offset
-        self.file.read_exact(&mut buf)?;
+        buf_read.read_exact(&mut buf)?;
         let root_offset = u32::from_be_bytes(buf);
         // degree
-        self.file.read_exact(&mut buf)?;
+        buf_read.read_exact(&mut buf)?;
         let degree = u32::from_be_bytes(buf);
         Ok((root_offset, degree))
     }
 
     pub fn write(&mut self, node: &Node) {
+        // Don't move file cursor for updating existing nodes
         let move_cursor = node.offset >= self.file_cursor;
         // Write node to disk
+        let mut buf_write = BufWriter::new(&self.file);
         // Offset
-        self.file.seek(SeekFrom::Start(node.offset as u64)).unwrap();
-        self.file.write_all(&node.offset.to_be_bytes()).unwrap();
+        buf_write.seek(SeekFrom::Start(node.offset as u64)).unwrap();
+        buf_write.write_all(&node.offset.to_be_bytes()).unwrap();
         // is Leaf Node
         // Don't see a way to convert bool to u8, so this will do
         if node.is_leaf() {
-            self.file.write_all(&[1;1]).unwrap();
+            buf_write.write_all(&[1;1]).unwrap();
         } else {
-            self.file.write_all(&[0;1]).unwrap();
+            buf_write.write_all(&[0;1]).unwrap();
         }
         // Number of Keys
-        self.file.write_all(&node.number_of_keys().to_be_bytes()).unwrap();
-        self.file.write_all(&node.number_of_children().to_be_bytes()).unwrap();
+        buf_write.write_all(&node.number_of_keys().to_be_bytes()).unwrap();
+        buf_write.write_all(&node.number_of_children().to_be_bytes()).unwrap();
         // Keys
         for i in 0..(2*self.degree-1) {
             if i < node.keys.len() as u32 {
-                self.file.write_all(&node.keys.get(i as usize).unwrap().sequence.to_be_bytes()).unwrap();
-                self.file.write_all(&node.keys.get(i as usize).unwrap().frequency.to_be_bytes()).unwrap();
+                buf_write.write_all(&node.keys.get(i as usize).unwrap().sequence.to_be_bytes()).unwrap();
+                buf_write.write_all(&node.keys.get(i as usize).unwrap().frequency.to_be_bytes()).unwrap();
             }
             else {
-                self.file.write_all(&[0;16]).unwrap();
+                buf_write.write_all(&[0;16]).unwrap();
             }
             if move_cursor{
                 // 2 u64s is 16 bytes (8 bits)
@@ -87,10 +92,10 @@ impl Pager {
         for i in 0..(2*self.degree) {
             if i < node.children_ptrs.len() as u32 {
                 let offset = &node.children_ptrs.get(i as usize).unwrap().to_be_bytes();
-                self.file.write_all(offset).unwrap();
+                buf_write.write_all(offset).unwrap();
             }
             else {
-                self.file.write_all(&[0;4]).unwrap();
+                buf_write.write_all(&[0;4]).unwrap();
             }
             if move_cursor{
                 self.file_cursor += 4;
@@ -100,43 +105,44 @@ impl Pager {
         if move_cursor {
             self.file_cursor += 13;
         }
-        self.file.flush().unwrap();
+        buf_write.flush().unwrap();
     }
 
     pub fn read(&mut self, offset: u32) -> Node {
         let mut buf = [0u8; 4];
-        self.file.seek(SeekFrom::Start(offset as u64)).unwrap();
+        let mut buf_read = BufReader::new(&self.file);
+        buf_read.seek(SeekFrom::Start(offset as u64)).unwrap();
         // Offset
-        self.file.read_exact(&mut buf).unwrap();
+        buf_read.read_exact(&mut buf).unwrap();
         let found_offset = u32::from_be_bytes(buf);
         if found_offset != offset {
             panic!("Found offset ({found_offset}) doesn't match given offset ({offset}). Offset misaligned.")
         }
         // is Leaf Node
-        self.file.read_exact(&mut buf[..1]).unwrap();
+        buf_read.read_exact(&mut buf[..1]).unwrap();
         let is_leaf: bool = u8::from_be_bytes(buf[..1].try_into().unwrap()) == 1;
         // Number of Keys
-        self.file.read_exact(&mut buf).unwrap();
+        buf_read.read_exact(&mut buf).unwrap();
         let number_of_keys = u32::from_be_bytes(buf);
         // Number of Children Offsets
-        self.file.read_exact(&mut buf).unwrap();
+        buf_read.read_exact(&mut buf).unwrap();
         let number_children_offsets = u32::from_be_bytes(buf);
         // Keys
         let mut key_buf = [0u8; 8];
         let mut keys: Vec<TreeObject> = Vec::new();
         for _ in 0..number_of_keys {
-            self.file.read_exact(&mut key_buf).unwrap();
+            buf_read.read_exact(&mut key_buf).unwrap();
             let sequence = u64::from_be_bytes(key_buf);
-            self.file.read_exact(&mut key_buf).unwrap();
+            buf_read.read_exact(&mut key_buf).unwrap();
             let frequency = u64::from_be_bytes(key_buf);
             keys.push(TreeObject {sequence, frequency});
 
         }
-        let _new_offset = self.file.seek(SeekFrom::Current(((2*self.degree-1) as i64 - number_of_keys as i64) * 16)).unwrap();
+        let _new_offset = buf_read.seek(SeekFrom::Current(((2*self.degree-1) as i64 - number_of_keys as i64) * 16)).unwrap();
         // Children Offsets
         let mut children_offsets: Vec<u32> = Vec::new();
         for _ in 0..number_children_offsets {
-            self.file.read_exact(&mut buf).unwrap();
+            buf_read.read_exact(&mut buf).unwrap();
             children_offsets.push(u32::from_be_bytes(buf));
         }
         Node {keys,
