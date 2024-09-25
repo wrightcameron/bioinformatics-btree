@@ -39,14 +39,14 @@ impl BTree {
         let refcell_node = Rc::new(RefCell::new(node));
 
         // Create Cache - commented out till I can get Rc working again
-        // let cache = if use_cache {
-        //     // Add root node
-        //     let mut cache = BTreeCache::new(cache_size);
-        //     cache.add_object(refcell_node.clone());
-        //     Some(cache)
-        // } else {
-        //     None
-        // };
+        let cache = if use_cache {
+            // Add root node
+            let mut cache = BTreeCache::new(cache_size);
+            cache.add_object(refcell_node.clone());
+            Some(cache)
+        } else {
+            None
+        };
 
         let btree = BTree {
             degree,
@@ -54,7 +54,7 @@ impl BTree {
             number_of_keys: 0,
             height: 0,
             pager,
-            cache: None,
+            cache,
             root_node: refcell_node,
         };
         btree
@@ -62,11 +62,11 @@ impl BTree {
 
     pub fn btree_search_root(&mut self, key: TreeObject) -> Option<TreeObject> {
         let root_node = self.read_root();
-        self.btree_search(root_node, key)
-    }           
+        self.btree_search(root_node.borrow(), key)
+    }
     
     /// Searches the BTree for the TreeObject given as an argument
-    pub fn btree_search(&mut self, given_root: Node, key: TreeObject) -> Option<TreeObject> {
+    pub fn btree_search(&mut self, given_root: Ref<Node>, key: TreeObject) -> Option<TreeObject> {
         let mut index = 0;
         while index < given_root.keys.len() && key > *given_root.keys.get(index).unwrap() {
             index += 1;
@@ -77,7 +77,7 @@ impl BTree {
             return None
         } else {
             let child = self.read(*given_root.children_ptrs.get(index).unwrap());
-            return self.btree_search(child, key);
+            return self.btree_search(child.borrow(), key);
         }
     }
 
@@ -86,15 +86,15 @@ impl BTree {
     pub fn btree_in_order_traversal(&mut self, node_offset_option: Option<u32>, sorted_keys: &mut Vec<TreeObject>) {
         if let Some(node_offset) = node_offset_option {
             let node = self.read(node_offset);
-            for i in 0..node.children_ptrs.len() {
-                self.btree_in_order_traversal(node.children_ptrs.get(i).copied(), sorted_keys);
-                if i < node.keys.len() {
-                    sorted_keys.push(node.keys.get(i).copied().expect("Reason TODO"));
+            for i in 0..node.borrow().children_ptrs.len() {
+                self.btree_in_order_traversal(node.borrow().children_ptrs.get(i).copied(), sorted_keys);
+                if i < node.borrow().keys.len() {
+                    sorted_keys.push(node.borrow().keys.get(i).copied().expect("Reason TODO"));
                 }
             }
-            if node.children_ptrs.len() == 0{
-                for i in 0..node.keys.len() {
-                    sorted_keys.push(node.keys.get(i).copied().expect("Reason TODO"));
+            if node.borrow().children_ptrs.len() == 0{
+                for i in 0..node.borrow().keys.len() {
+                    sorted_keys.push(node.borrow().keys.get(i).copied().expect("Reason TODO"));
                 }
             }
         }
@@ -126,8 +126,8 @@ impl BTree {
 
     /// Splits the tree when the degree of a node gets to size of degree
     pub fn btree_split_child(&mut self, given_root: Rc<RefCell<Node>>, index: u32) {
-        let mut borrowed_root = given_root.borrow_mut();
-        let y: Rc<RefCell<Node>> = Rc::new(RefCell::new(self.read(*borrowed_root.children_ptrs.get(index as usize).unwrap())));
+        // let mut borrowed_root = given_root.borrow_mut();
+        let y: Rc<RefCell<Node>> = self.read(*given_root.borrow().children_ptrs.get(index as usize).unwrap());
         let mut z: Node = Node::new();
         z.offset = self.pager.file_cursor;
         z.is_leaf = y.borrow().is_leaf;
@@ -144,12 +144,13 @@ impl BTree {
             }
         }
         y.borrow_mut().number_of_keys = self.degree - 1;
-        borrowed_root.number_of_keys = borrowed_root.number_of_keys + 1;
-        borrowed_root.children_ptrs.insert(index as usize + 1, z.offset );
-        borrowed_root.keys.insert(index as usize, y.borrow_mut().keys.remove(self.degree as usize - 1));
-        self.write(&y.borrow());
-        self.write(&z);
-        self.write(&borrowed_root);
+        let given_root_num_keys = given_root.borrow().number_of_keys;
+        given_root.borrow_mut().number_of_keys = given_root_num_keys + 1;
+        given_root.borrow_mut().children_ptrs.insert(index as usize + 1, z.offset );
+        given_root.borrow_mut().keys.insert(index as usize, y.borrow_mut().keys.remove(self.degree as usize - 1));
+        self.write(&y);
+        self.write(&Rc::new(RefCell::new(z)));
+        self.write(&given_root);  // TODO This will fail.
     }
 
     /// Inserts a node into the BTree
@@ -162,7 +163,7 @@ impl BTree {
             self.root_node.borrow_mut().add_child_ptr(old_root.offset);
             self.root_node.borrow_mut().offset = self.pager.file_cursor;
             // Write above to file
-            self.write(&self.root_node.clone().borrow() );  // This needs to be written to move file cursor, or we move the file cursor some other way.
+            self.write(&self.root_node.clone());  // This needs to be written to move file cursor, or we move the file cursor some other way.
             // self.pager.write(&old_root);
             self.pager.write_metadata(self.root_node.borrow().offset, self.degree);
             self.number_of_nodes += 1;
@@ -187,24 +188,24 @@ impl BTree {
                 given_root.borrow_mut().number_of_keys += 1;
                 self.number_of_keys += 1;
             }
-            self.write(&given_root.borrow());
+            self.write(&given_root);
         } else {
             while index >= 1 && key < *given_root.borrow().keys.get(index as usize - 1).unwrap() {
                 index -= 1;
             }
             if index >= 1 && key == *given_root.borrow().keys.get(index as usize - 1).unwrap() {
                 given_root.borrow_mut().keys.get_mut(index as usize - 1).unwrap().increase_frequency();
-                self.write(&given_root.borrow());
+                self.write(&given_root);
             } else {
                 index += 1;
-                let mut child: Rc<RefCell<Node>> = Rc::new(RefCell::new( self.read(*given_root.borrow().children_ptrs.get(index as usize - 1).unwrap()) ));
+                let mut child: Rc<RefCell<Node>> = self.read(*given_root.borrow().children_ptrs.get(index as usize - 1).unwrap());
                 if child.borrow().keys.len() == (2 * self.degree as usize) - 1 {
                     self.btree_split_child(given_root.clone(), index as u32 - 1);
                     if key > *given_root.borrow().keys.get(index as usize - 1).unwrap() {
                         index += 1;
                     }
                     // Refresh the child node, which was changed from the split
-                    child = Rc::new(RefCell::new( self.read(*given_root.borrow().children_ptrs.get(index as usize - 1).unwrap()) ));
+                    child = self.read(*given_root.borrow().children_ptrs.get(index as usize - 1).unwrap());
                 }
                 self.btree_insert_non_full(child, key);
             }
@@ -286,46 +287,26 @@ impl BTree {
     //     T
     // }
 
-    // pub fn get_sorted_key_array(&self) -> Vec<i64>{
-    //     let keys: Vec<TreeObject> = self.iter();
-    //     Vec::new()
-    // }
-
-    // TODO Don't delete original code
-    // fn write(&mut self, node: &Rc<RefCell<Node>>){
-    //     if ! self.cache.is_none() {
-    //         self.cache.as_mut().unwrap().add_object(node.clone());
-    //     }
-    //     self.pager.write(&node.borrow());
-    // }
-
-    fn write(&mut self, node: &Node){
-        self.pager.write(&node);
+    fn write(&mut self, node: &Rc<RefCell<Node>>){
+        if ! self.cache.is_none() {
+            self.cache.as_mut().unwrap().add_object(node.clone());
+        }
+        self.pager.write(&node.borrow());
     }
 
-    // fn read(&mut self, offset: u32) -> Rc<RefCell<Node>> {
-    //     if ! self.cache.is_none() {
-    //         match self.cache.as_mut().unwrap().get_object(offset) { 
-    //             Some(node) => node,
-    //             None => Rc::new(RefCell::new(self.pager.read(offset))),
-    //         }
-    //     } else {
-    //         Rc::new(RefCell::new(self.pager.read(offset)))
-    //     }
-    // }
-
-    fn read(&mut self, offset: u32) -> Node {
-        self.pager.read(offset)
+    fn read(&mut self, offset: u32) -> Rc<RefCell<Node>> {
+        if ! self.cache.is_none() {
+            match self.cache.as_mut().unwrap().get_object(offset) { 
+                Some(node) => node,
+                None => Rc::new(RefCell::new(self.pager.read(offset))),
+            }
+        } else {
+            Rc::new(RefCell::new(self.pager.read(offset)))
+        }
     }
 
     // TODO DO we want to return a option or result?
-    // fn read_root(&mut self) -> Rc<RefCell<Node>> {
-    //     // If no offset is found, due to empty file return null
-    //     let offset = self.pager.get_root_offset().expect("Root Offset couldn't be found!");
-    //     self.read(offset)
-    // }
-
-    fn read_root(&mut self) -> Node {
+    fn read_root(&mut self) -> Rc<RefCell<Node>> {
         // If no offset is found, due to empty file return null
         let offset = self.pager.get_root_offset().expect("Root Offset couldn't be found!");
         self.read(offset)
@@ -352,8 +333,8 @@ mod tests {
 
     /// BTree constructor used only for testing
     fn btree(degree: u32, file_name: &str) -> BTree {
-        let use_cache = false;
-        let cache_size = 0;
+        let use_cache = true;
+        let cache_size = 100;
         BTree::new(degree, file_name, use_cache, cache_size, true)
     }
 

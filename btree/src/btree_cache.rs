@@ -17,7 +17,6 @@ impl BTreeCache {
         }
     }
 
-    // TODO To make this cache the best, should probably return Rc,RefCell
     pub fn get_object(&mut self, offset: u32) -> Option<Rc<RefCell<Node>>> {
         let index = self.cache.iter().position(|x| x.borrow().offset == offset)?;
         let res = self.cache.remove(index);
@@ -27,8 +26,11 @@ impl BTreeCache {
         
     }
 
-    // TODO What if the value already exists in the cache?
     pub fn add_object(&mut self, obj: Rc<RefCell<Node>>) {
+        // Check if obj already in vec
+        if self.cache.contains(&obj)  {
+            return
+        }
         if self.cache.len() as u32 == self.max_size {
             self.cache.pop();
         }
