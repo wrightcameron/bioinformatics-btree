@@ -39,3 +39,24 @@ maximum number of `BTreeNode` objects that can be stored in memory
 `cargo run -- -g ../data/geneBankFiles/test0.gbk`
 
 `cargo run -- --cache=1 --degree=0 --gbkfile=../data/geneBankFiles/test0.gbk --length=2 --cachesize=5000 --debug=1`
+
+## Benchmark
+
+| gbk file | degree | sequence length | cache | cache size | cache hit rate | run time  |
+| -------- | ------ | --------------- | ----- | ---------- | -------------- | --------  |
+| test5.gbk|  102   |     20          |  no   |    0       |      0%        |  17.778s  |
+| test5.gbk|  102   |     20          |  yes  |    100     |      n/a%      |  22.990s  |
+| test5.gbk|  102   |     20          |  yes  |    500     |      n/a%      |  23.243s  |
+| test5.gbk|  102   |     20          |  yes  |    1000    |      n/a%      |  22.893s  |
+| test5.gbk|  102   |     20          |  yes  |    5000    |      n/a%      |  22.331s  |
+| test5.gbk|  102   |     20          |  yes  |    10000   |      n/a%      |  22.991s  |
+
+```bash
+time ./target/release/gene-bank-create-btree --cache=0 --degree=102 --gbkfile=./data/geneBankFiles/test5.gbk --length=10 --cachesize=0 --debug=0
+time ./target/release/gene-bank-create-btree --cache=1 --degree=102 --gbkfile=./data/geneBankFiles/test5.gbk --length=10 --cachesize=100 --debug=0
+time ./target/release/gene-bank-create-btree --cache=1 --degree=102 --gbkfile=./data/geneBankFiles/test5.gbk --length=10 --cachesize=100 --debug=0
+time ./target/release/gene-bank-create-btree --cache=1 --degree=102 --gbkfile=./data/geneBankFiles/test5.gbk --length=10 --cachesize=500 --debug=0
+time ./target/release/gene-bank-create-btree --cache=1 --degree=102 --gbkfile=./data/geneBankFiles/test5.gbk --length=10 --cachesize=1000 --debug=0
+time ./target/release/gene-bank-create-btree --cache=1 --degree=102 --gbkfile=./data/geneBankFiles/test5.gbk --length=10 --cachesize=5000 --debug=0
+time ./target/release/gene-bank-create-btree --cache=1 --degree=102 --gbkfile=./data/geneBankFiles/test5.gbk --length=10 --cachesize=10000 --debug=0
+```

@@ -8,6 +8,8 @@ use crate::pager::Pager;
 use crate::btree_node::*;
 use crate::btree_cache::BTreeCache;
 
+/// Btree Struct, containing meta data about tree,
+/// along with objects for caching or writing nodes to disk.
 pub struct BTree {
     degree: u32,
     number_of_nodes: u32,
@@ -19,13 +21,14 @@ pub struct BTree {
 }
 
 impl BTree {
+    /// Constructor to build Btree
     pub fn new(mut degree: u32, file_name: &str, use_cache: bool, cache_size: u32, truncate_file: bool) -> BTree {
         // If degree is 0, set degree to most optimal for 4096 bytes
         if degree == 0 {
             degree = 102;
         }
         // Retreave the root node if possible
-        let mut pager = Pager::new(&file_name, degree, truncate_file).unwrap();
+        let mut pager = Pager::new(&file_name, degree).unwrap();
         
         // Create node and recreate pager file if it already exists.
         let mut node = Node::new();
@@ -60,6 +63,7 @@ impl BTree {
         btree
     }
 
+    /// Search btree for key sequence, starting at btree root.
     pub fn btree_search_root(&mut self, key: TreeObject) -> Option<TreeObject> {
         let root_node = self.read_root();
         self.btree_search(root_node.borrow(), key)
@@ -83,6 +87,7 @@ impl BTree {
 
     // TODO Shouldn't this return child offsets of keys instead of keys, cause big enough btree this would take alot of memory.
     // TODO Also this might change once we add a cache, well anything with reference counters will change.
+    //// Traverse Btree In Order, returning Vec of sorted keys
     pub fn btree_in_order_traversal(&mut self, node_offset_option: Option<u32>, sorted_keys: &mut Vec<TreeObject>) {
         if let Some(node_offset) = node_offset_option {
             let node = self.read(node_offset);
@@ -100,6 +105,7 @@ impl BTree {
         }
     }
 
+    /// Get sorted Vec of key TreeObject  - method lies, its a vec and vecs can grow so btree_in_order_traversal uses one.
     pub fn get_sorted_array(&mut self) -> Vec<TreeObject> {
         let mut sorted_keys: Vec<TreeObject> = Vec::new();
         // If no offset is found, due to empty file return empty Vec
@@ -112,6 +118,8 @@ impl BTree {
         sorted_keys
     }
 
+
+    /// Get sorted Vec of Key Sequences in their binary form, represented as a u64 value.
     pub fn get_sorted_key_array(&mut self) -> Vec<u64> {
         let mut sorted_keys: Vec<TreeObject> = Vec::new();
         // If no offset is found, due to empty file return empty Vec
@@ -213,80 +221,52 @@ impl BTree {
         }
     }
 
-    // pub fn in_order_traversal(root, writer, sequence_length){
-
-    // }
-
+    /// Get maximum allowed keys based on Btree degree
     pub fn maximum_keys(&self) -> u32 {
         2 * self.degree - 1
     }
 
-    /**
-     * @return Returns the number of keys in the BTree.
-     */
+    /// Returns the number of keys in the BTree.
     pub fn get_size(&self) -> u32 {
         self.number_of_keys
     }
 
-    /**
-     * @return The degree of the BTree.
-     */
+    /// The degree of the BTree.
     pub fn get_degree(&self) -> u32 {
         self.degree
     }
 
-    /**
-     * @return Returns the number of nodes in the BTree.
-     */
-    pub fn get_number_of_nodes(&self) -> i32 {
-        0
+    /// Returns the number of nodes in the BTree.
+    pub fn get_number_of_nodes(&self) -> u32 {
+        self.number_of_nodes
     }
 
-    /**
-     * @return The height of the BTree
-     */
+    /// The height of the BTree
     pub fn get_height(&self) -> u32 {
         self.height
     }
 
-    /**
-     * Deletes a key from the BTree. Not Implemented.
-     *
-     * @param key the key to be deleted
-     */
-    pub fn delete(key: i32) {}
+    /// Deletes a key from the BTree. Not Implemented.
+    #[allow(unused_variables)]
+    pub fn delete(key: i32) {
+        unimplemented!();
+    }
 
-    /**
-     *
-     * Insert a given sequence in the B-Tree. If the sequence already exists in the B-Tree,
-     * the frequency count is incremented. Otherwise a new node is inserted
-     * following the B-Tree insertion algorithm.
-     *
-     * @param obj
-     *            A TreeObject representing a DNA string
-     *
-     */
-    // void insert(TreeObject obj) throws IOException;
-    pub fn insert<T>(&mut self, obj: T) {}
+    /// Insert a given sequence in the B-Tree. If the sequence already exists in the B-Tree,
+    /// the frequency count is incremented. Otherwise a new node is inserted
+    /// following the B-Tree insertion algorithm.
+    #[allow(unused_variables)]
+    pub fn insert<T>(&mut self, obj: T) {
+        unimplemented!();
+    }
 
-    // /**
-    //  * Print out all objects in the given BTree in an inorder traversal to a file.
-    //  *
-    //  * @param out PrintWriter object representing output
-    //  */
-    // // void dumpToFile(PrintWriter out) throws IOException;
-    // // pub fn dump_to_file(out: PrintWriter) {}
+    /// Searches for a sequence in the given BTree.
+    #[allow(unused_variables)]
+    pub fn search(key: i32) -> u32 {
+        unimplemented!();
+    }
 
-    // /**
-    //  * Searches for a sequence in the given BTree.
-    //  *
-    //  * @param key
-    //  *            The key value to search for.
-    //  */
-    // pub fn search<T>(key: i32) -> T {
-    //     T
-    // }
-
+    /// Btree Decorator function, for handling writes, but either to cache or pager.
     fn write(&mut self, node: &Rc<RefCell<Node>>){
         if ! self.cache.is_none() {
             self.cache.as_mut().unwrap().add_object(node.clone());
@@ -294,6 +274,7 @@ impl BTree {
         self.pager.write(&node.borrow());
     }
 
+    /// Btree Decorator function, for handling reads, but either to cache or pager.
     fn read(&mut self, offset: u32) -> Rc<RefCell<Node>> {
         if ! self.cache.is_none() {
             match self.cache.as_mut().unwrap().get_object(offset) { 
@@ -306,6 +287,7 @@ impl BTree {
     }
 
     // TODO DO we want to return a option or result?
+    /// Read the root node from memory or disk. 
     fn read_root(&mut self) -> Rc<RefCell<Node>> {
         // If no offset is found, due to empty file return null
         let offset = self.pager.get_root_offset().expect("Root Offset couldn't be found!");
@@ -326,7 +308,7 @@ impl Iterator for BTree {
 mod tests {
     use super::*;
 
-
+    /// Delete file passed in, helper function for cleaning up.
     fn delete_file(file: &str){
         std::fs::remove_file(file).ok();
     }
@@ -338,6 +320,7 @@ mod tests {
         BTree::new(degree, file_name, use_cache, cache_size, true)
     }
 
+    /// Verify btree elements are in same order as actual elements passed in.
     fn validate_btree_inserts(mut b: BTree, input_keys: Vec<u64>) -> bool {
         let mut btree_keys = b.get_sorted_key_array();
         // input may be unsorted

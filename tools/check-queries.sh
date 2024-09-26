@@ -1,6 +1,6 @@
 #!/bin/sh
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
-BUILD_DIR=$SCRIPT_DIR/../target/debug
+BUILD_DIR=$SCRIPT_DIR/../target/release
 GBK_FILES=$SCRIPT_DIR/../data/geneBankFiles
 QUERIES_DIR=$SCRIPT_DIR/../data/queries
 QUERY_RESULTS_DIR=$SCRIPT_DIR/../results/query-results
@@ -13,7 +13,8 @@ esac
 datafile=$1
 for i in 1 2 3 4 5 6 7 8 9 10 20 31
 do
-	echo "\nRunning queryfile " query$i "on $datafile.btree.data.$i.0\n"
+	echo "\nRunning queryfile " query$i "on $datafile.btree.data.$i.0"
+	echo "gene-bank-search-btree --cache=0 --degree=0 --btreefile=$GBK_FILES/$datafile.btree.data.$i.0 --length=$i --queryfile=$QUERIES_DIR/query$i --debug=0  > $QUERIES_DIR/query$i-$datafile.out"
 	time $BUILD_DIR/gene-bank-search-btree --cache=0 --degree=0 --btreefile=$GBK_FILES/$datafile.btree.data.$i.0 --length=$i --queryfile=$QUERIES_DIR/query$i --debug=0  > $QUERIES_DIR/query$i-$datafile.out
 done
 echo

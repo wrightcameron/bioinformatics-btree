@@ -3,20 +3,24 @@ use std::cell::RefCell;
 use crate::btree_node::Node;
 
 // TODO Instead of turning cache into Node specific, could make it a interface and create methods in Node
+
+/// BTreeCache is a struct encapsulating a Vec, for storing Reference Counters of Nodes in memory
 pub struct BTreeCache {
     cache: Vec<Rc<RefCell<Node>>>,
     max_size: u32,
 }
 
 impl BTreeCache {
-    //TODO  Handle if max size is set to 0 or less, should throw an error
+    /// Create BTree Cache struct, with set size
     pub fn new(max_size: u32) -> Self {
+        // TODO  Handle if max size is set to 0 or less, should throw an error
         BTreeCache {
             cache: Vec::new(),
             max_size,
         }
     }
 
+    /// Find Node within cache with matching offset, return node but place reference to node at front of cache
     pub fn get_object(&mut self, offset: u32) -> Option<Rc<RefCell<Node>>> {
         let index = self.cache.iter().position(|x| x.borrow().offset == offset)?;
         let res = self.cache.remove(index);
@@ -26,6 +30,7 @@ impl BTreeCache {
         
     }
 
+    /// Add node to cache, if cache is full pop off Node at end
     pub fn add_object(&mut self, obj: Rc<RefCell<Node>>) {
         // Check if obj already in vec
         if self.cache.contains(&obj)  {
@@ -37,100 +42,15 @@ impl BTreeCache {
         self.cache.insert(0, obj)
     }
 
+    /// Remove object off end of cache, return node
+    #[allow(dead_code)]
     pub fn remove_object(mut self) -> Option<Rc<RefCell<Node>>>{
         self.cache.pop()
     }
 
+    /// Empty cache
+    #[allow(dead_code)]
     pub fn clear_cache(mut self) {
         self.cache.clear();
     }
 }
-
-// TODO Ya the tests will have to be redone, shame but easier than trying to make generics work atm
-// #[cfg(test)]
-// mod tests {
-//     use super::*;#[cfg(test)]
-// mod tests {
-//     use super::*;
-
-//     #[test]
-//     fn test_btree_create_cache() {
-//         let mut cache: BTreeCache<i64> = BTreeCache::new(10);
-//         cache.add_object(1);
-//         assert_eq!(1,*cache.get_object(&1).unwrap());
-//     }
-
-//     #[test]
-//     fn test_btree_not_exisitng() {
-//         let mut cache: BTreeCache<i64> = BTreeCache::new(10);
-//         cache.add_object(1);
-//         assert_ne!(None, cache.get_object(&1));
-//     }
-
-//     #[test]
-//     fn test_btree_multiple_gets() {
-//         let mut cache: BTreeCache<i64> = BTreeCache::new(10);
-//         cache.add_object(1);
-//         cache.add_object(2);
-//         cache.add_object(3);
-//         cache.add_object(4);
-//         assert_eq!(3, *cache.get_object(&3).unwrap());
-//         assert_eq!(3, *cache.get_object(&3).unwrap());
-//         assert_eq!(3, *cache.get_object(&3).unwrap());
-
-//         assert_eq!(2, *cache.get_object(&2).unwrap());
-//         assert_eq!(2, *cache.get_object(&2).unwrap());
-//     }
-
-//     #[test]
-//     fn test_btree_fullcache() {
-//         let mut cache: BTreeCache<i64> = BTreeCache::new(2);
-//         cache.add_object(1);
-//         cache.add_object(2);
-//         cache.add_object(3);
-
-//         assert_eq!(None, cache.get_object(&1));
-//     }
-
-// }
-
-//     #[test]
-//     fn test_btree_create_cache() {
-//         let mut cache: BTreeCache<i64> = BTreeCache::new(10);
-//         cache.add_object(1);
-//         assert_eq!(1,*cache.get_object(&1).unwrap());
-//     }
-
-//     #[test]
-//     fn test_btree_not_exisitng() {
-//         let mut cache: BTreeCache<i64> = BTreeCache::new(10);
-//         cache.add_object(1);
-//         assert_ne!(None, cache.get_object(&1));
-//     }
-
-//     #[test]
-//     fn test_btree_multiple_gets() {
-//         let mut cache: BTreeCache<i64> = BTreeCache::new(10);
-//         cache.add_object(1);
-//         cache.add_object(2);
-//         cache.add_object(3);
-//         cache.add_object(4);
-//         assert_eq!(3, *cache.get_object(&3).unwrap());
-//         assert_eq!(3, *cache.get_object(&3).unwrap());
-//         assert_eq!(3, *cache.get_object(&3).unwrap());
-
-//         assert_eq!(2, *cache.get_object(&2).unwrap());
-//         assert_eq!(2, *cache.get_object(&2).unwrap());
-//     }
-
-//     #[test]
-//     fn test_btree_fullcache() {
-//         let mut cache: BTreeCache<i64> = BTreeCache::new(2);
-//         cache.add_object(1);
-//         cache.add_object(2);
-//         cache.add_object(3);
-
-//         assert_eq!(None, cache.get_object(&1));
-//     }
-
-// }

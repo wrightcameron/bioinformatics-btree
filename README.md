@@ -1,16 +1,19 @@
-# CS 321 Bioinformatics BTree Project
+# Bioinformatics BTree Project
+
+The original CS321 BTree Project, redone in Rust.
 
 **Table of contents:**
 - [Introduction](#1-introduction)
-- [Background](#2-background)
-- [Specifications](#3-specifications)
-- [Design Issues](#4-design-issues)
-- [Implementation](#5-implementation)
-- [Using a Cache](#6-using-a-cache)
-- [Using a Database](#7-using-a-database)
-- [Useful Examples](#8-useful-examples)
-- [Test Scripts](#9-test-scripts)
-- [Testing in the Cloud](#10-testing-in-the-cloud)
+- [Requirements](#2-requirements)
+- [Setup](#3-setup)
+- [Background](#4-background)
+- [Specifications](#5-specifications)
+- [Design Issues](#6-design-issues)
+- [Implementation](#7-implementation)
+- [Using a Cache](#8-using-a-cache)
+- [Using a Database](#9-using-a-database)
+- [Test Scripts](#10-test-scripts)
+- [Resources](#11-resources)
 
 ## 1. Introduction
 
@@ -18,7 +21,24 @@ In this assignment, we will solve a problem from the field of Bioinformatics usi
 The amount of data that we have to handle is large and any data structure is not likely to fit
 in memory. Hence, a BTree is a good choice for the data structure.
 
-## 2. Background
+## 2. Requirements
+
+- Rust - Stable branch
+- Bash to run shell script in tools/
+
+## 3. Setup
+
+For development, checking syntax, running tests, running executables can be done
+all out of the [cargo](https://doc.rust-lang.org/cargo/guide/) Rust package manager.
+It's included with Rust when installed.
+
+Quick commands
+- cargo check - checks for compile time syntax error & warnings
+- cargo test - run unit and integration tests
+- cargo run - run binary executables, multiple in repo so need to specify
+- cargo build - build stand alone executable, default build target debug
+
+## 4. Background
 
 _Bioinformatics_ is the field of science in which biology, computer science, and information
 technology merge to form a single discipline. One of the primary aims of Bioinformatics is
@@ -55,9 +75,9 @@ Most of the information in a GeneBank file is of interest to biologists. We will
 interested in the actual DNA sequences that are embedded in these files rather than in the
 intervening annotations.
 
-## 3. Specifications
+## 5. Specifications
 
-### 3.1. Input Files
+### 5.1. Input Files
 
 The GeneBank files have a bunch of annotations followed by the keyword `ORIGIN`. The DNA sequences
 start from the next line. Each line has 60 characters (one of `A`, `T`, `C`, `G`, could be
@@ -108,7 +128,7 @@ file is optional as it may take a long time! Note that this file isn't
 available on GitHub due to their limitation on file size. You can download it from here:
 [hs_ref_chrY.gbk](https://drive.google.com/file/d/1zkAIQW8ol7HxGxNBeJTSuwES7EqPYiHx/view?usp=sharing)
 
-### 3.2. Problem
+### 5.2. Problem
 
 The biological motivation for the problem is to study the frequency of different length
 subsequences to see if they are random or that some subsequences are more likely to be found
@@ -129,9 +149,9 @@ We will also create a SQL database (for a specific length `k`) of subsequences a
 frequency to aid in searching. A database will be directly created from the provided 
 BTree dump files.
 
-## 4. Design Issues
+## 6. Design Issues
 
-### 4.1. Saving memory
+### 6.1. Saving memory
 
 We could represent each DNA base as a character. In Java, each character is stored in Unicode,
 which requires 16 bits (or 2 bytes).  Since we only have four possible bases (`A`, `C`, `G`
@@ -161,18 +181,18 @@ the sign (+ or -) of the number and thus the effective number of bits for storin
 which can hold up to 31 2-bit binary codes (e.g., 00 for A, etc), using up 62 bits and then we
 run out of space to add another 2-bit representation of a DNA base.
 
-### 4.2. Key Values
+### 6.2. Key Values
 
 Note that the binary compact representation of the subsequences will result in a unique 64-bit
 integer value. Hence, we can directly use that as our key value.
 
-### 4.3. Class Design
+### 6.3. Class Design
 
 We will need a `BTree` class as well as a `BTreeNode` class. The objects that we store in the
 BTree will be similar to the objects we stored in the previous Hashtable assignment. You may
 call the relevant class `TreeObject` to represent the objects.
 
-## 5. Implementation
+## 7. Implementation
 
 We will create three programs:
 - one that **creates a BTree** from a given GeneBank file 
@@ -181,24 +201,23 @@ assumes that the user specified the proper BTree to use depending upon the query
 - a third for **searching in the SQL database** for subsequences of specified length. This database
   should be created by loading provided btree dump files using the SQLite interface outside our program.
 
-The main Java classes should be named `GeneBankCreateBTree`, `GeneBankSearchBTree`, and
-`GeneBankSearchDatabase`.
+The main Rust binaries should be named `gene-bank-create-btree`, `gene-bank-search-btree`, and
+`gene-bank-search-database`.
 
-### 5.1. Program Arguments
+### 7.1. Program Arguments
 
 The required arguments for the three programs are shown below:
 
 ```bash
-java -jar build/libs/GeneBankCreateBTree.jar --cache=<0|1>  --degree=<btree-degree> 
+gene-bank-create-btree --cache=<0|1>  --degree=<btree-degree> 
     --gbkfile=<gbk-file> --length=<sequence-length> [--cachesize=<n>] [--debug=0|1]
 
 
-java -jar build/libs/GeneBankSearchBTree.jar --cache=<0/1> --degree=<btree-degree> 
+gene-bank-search-btree --cache=<0/1> --degree=<btree-degree> 
     --btreefile=<b-tree-file> --length=<sequence-length> --queryfile=<query-file> 
     [--cachesize=<n>] [--debug=0|1]
 
-java -jar build/libs/GeneBankSearchDatabase.jar --database=<SQLite-database-path> 
-      --queryfile=<query-file>
+gene-bank-search-database --database=<SQLite-database-path> --queryfile=<query-file>
 ```
 
 **Note that the arguments can be provided in any order.**
@@ -269,9 +288,9 @@ aaact 12
 ...
 ```
 
-### 5.2. Additional Implementation Remarks
+### 7.2. Additional Implementation Remarks
 
-#### 5.2.1. Your programs should always keep the root node in the memory
+#### 7.2.1. Your programs should always keep the root node in the memory
 
 Write the root node to disk file only at the end of the program and read it in when the program
 starts up. In addition, our program can only hold a few nodes in memory. In other words,
@@ -279,7 +298,7 @@ we can only use a few BTreeNode variables (including the root) in our program (e
 parent, current, child, temporary node for split). However, if the cache is enabled, we can
 store `<cache-size>` `BTreeNode` objects in the cache.
 
-#### 5.2.2. Metadata storage
+#### 7.2.2. Metadata storage
 
 We need to store some metadata about the B-Tree on disk. For example, we can store the degree
 of the tree, the byte offset of the root node (so we can find it), the number of nodes, and other
@@ -287,7 +306,7 @@ information. This information should be stored at the beginning of the B-Tree fi
 metadata when we open the B-Tree file and we write it back (as it may have changed) when we close
 the B-Tree file at the end of the program.
 
-#### 5.2.3. Layout of the B-Tree in the binary file 
+#### 7.2.3. Layout of the B-Tree in the binary file 
 
 The B-Tree is stored as a binary file on disk. This is the most efficient and compact way to
 store the B-Tree data structure so it persists beyond the program. While it is possible to
@@ -301,7 +320,7 @@ laid out one after the other. A new node is added to the end of the file.
 If the name of the GeneBank file is `xyz.gbk`, the subsequence length is `<k>` and the B-Tree
 degree is `<t>`, then the name of the B-Tree file should be `xyz.gbk.btree.data`.`<k>.<t>`.
 
-#### 5.2.4 Reading and Writing Nodes
+#### 7.2.4 Reading and Writing Nodes
 
 - We will read/write one BTreeNode at a time. If the degree `<t>` is small, this would be
 inefficient. To improve efficient, we should set the degree `<t>` to an **optimum** value such
@@ -311,16 +330,11 @@ as possible with some empty padding space at the end (if needed).
 - We will store the byte offset of a node on disk as the child pointers in the BTreeNodes. Note
 that we never need real child pointers in memory.
 
-- We will use RandomAccessFile  and FileChannel classes to read/write to the BTree
+- We will use std::fs::File struct to read/write to the BTree
 data file. This allows us to quickly set the file cursor to anywhere in the file
-in O(1) time using the `position(long pos)` method. We will use the ByteBuffer
-class to read/write to the BTree data file.  Please see the example of writing
-to a random access binary data file shown in DiskReadWrite.java in the [Disk IO
-example](https://github.com/BoiseState/CS321-resources/tree/master/examples/disk-IO-examples)
-folder in CS321-resources repo. This example shows a complete binary search tree as an external
-data structure in a binary file on disk.
+in O(1) time using the `seek(pos: SeekFrom)` method.
 
-#### 5.2.5 To query for a subsequence, we also query for its complement
+#### 7.2.5 To query for a subsequence, we also query for its complement
 
 Note that our BTree stores only one side of the DNA strand but there is a complementary strand
 as well. This implies that when we search for a subsequence, we also need to search for its
@@ -331,12 +345,12 @@ complement `TTACG` (replace `A` by `T`, `T` by `A`, `C` by `G` and `G` by `C`). 
 `AATGC`, we will search for both `AATGC` and its complement `TTACG` and then add the frequencies
 to get the result.
 
-## 6. Using a Cache
+## 8. Using a Cache
 
-We will incorporate the generic Cache class from `Project 1` to improve the performance of
-our B-Tree implementation. The size of the cache should be a command line argument. An entry
-in the cache is a `BTreeNode`. With the cache enabled command line option, the `<cache-size>`
-needs to be specified as well.
+~~We will incorporate the generic Cache class from `Project 1` to improve the performance of
+our B-Tree implementation.~~ `Project 1` defined contract around Vec. The size of the cache
+should be a command line argument. An entry in the cache is a `BTreeNode`. With the cache
+enabled command line option, the `<cache-size>` needs to be specified as well.
 
 :book: Report the time improvement for sequences of length 20 on `test5.gbk` using a cache of size
 `100`, `500`, `1000`, `5000`, and `10,000` in your [`README-submission.md`](/README-submission.md)
@@ -362,7 +376,7 @@ We were able to create a B-Tree for the full human Y chromosome (`data/files_gbk
 in about 14 minutes using a cache of size 10,000. With a cache of size 100,000 (about 400 MB
 of memory), we were able to bring the time to create the BTree down to only 2m19s.
 
-## 7. Using a Database
+## 9. Using a Database
 
 A common technique is to provide project results in a common format. The results
 will then be accessible to other researchers much more easily.
@@ -381,7 +395,7 @@ SQLite .import command. See the documentation
 Loading the data from the dumpfiles prevents your team from needing a fully 
 functioning BTree to complete this requirement.
 
-Then create a separate search program named `GeneBankSearchDatabase` 
+Then create a separate search program named `gene-bank-search-database` 
 that uses the database instead of the BTree. This is a common pattern in real life
 applications, where we may crunch lots of data using a data
 structure and then store the results in a database for ease of access.
@@ -390,30 +404,15 @@ Note: Since correct dumpfiles are provided in the results folder, GeneBankSearch
 can be started and completed before GeneBankCreateBTree.
 
 ```bash
-$ ./gradlew createJarGeneBankSearchDatabase
-$ java -jar build/libs/GeneBankSearchDatabase.jar --database=<SQLite-database-path> 
-      --queryfile=<query-file>
+$ ./tools/importGeneBankDump.sh
+$ gene-bank-search-database --database=<SQLite-database-path> --queryfile=<query-file>
 ```
 
 Use the embedded SQLite database for searching the database. The SQLite driver is fully
 contained in a jar file that gradle will automatically pull down for us. See the database
 example in the section below on how to use SQLite.
 
-## 8. Useful Examples
-
-The following examples from the class examples repository will be useful for this project.
-
-- [Disk IO example](https://github.com/BoiseState/CS321-resources/tree/master/examples/disk-IO-examples): In
-  particular, look at DiskReadWrite.java. It shows the implementation of an external binary
-  search tree on disk.
-- [SQLite example](https://github.com/BoiseState/CS321-resources/tree/master/examples/SQLite): A
-  quick starter example on how to set up and use SQLite.
-- [Bitwise operators
-example](https://github.com/BoiseState/CS321-resources/tree/master/examples/bitwise-operators-example):
-In particular, look at SequenceUtils.java for helpful sequence utility code. A copy of this
-has also been provided in the starter code for the project.
-
-## 9. Test Scripts
+## 10. Test Scripts
 
 Several test gbk files are provided in the folder: 
 [data/files_gbk](https://github.com/BoiseState/CS321_Bioinformatics/tree/master/data/files_gbk).
@@ -478,25 +477,10 @@ your project.
 Start off by running tests on your machine. If you do need to run them on `onyx` please only
 run the smallest test (`test0.gbk`) to avoid overloading the `onyx` server.
 
-## 10. Extra Credit: Testing a Large File in the Cloud
+## 11. Resources
 
-Using the AWS Accounts provided earlier in the course, you can run the 
-large Y-Chromosome file on a cloud instance, provided you create a larger instance.
-
-Creating a BTree with the large file is very time intensive. It will take too long to run
-unless your cache implementation is efficient and your BTree is well-designed.
-
-To be rewarded with the extra credit, request permissions to create a larger instance. 
-Then, capture a screenshot of check-queries.sh completed 
-and include it with your submission.
-
-:cloud: :smiley:
-
-Please see the [AWS
-notes](https://docs.google.com/document/d/1v5a0XlzaNyi63TXXKP4BQsPIdJt4Zkxn2lZofVP8qqw/edit?usp=sharing)
-for a step-by-step guide on running your project on the AWS cloud. 
-
-## References
-
-- [Prompt](https://github.com/BoiseState/CS321_Bioinformatics?tab=readme-ov-file)
-- [Original Project in Java](https://github.com/TyWig/p4)
+- [Original Prompt](https://github.com/BoiseState/CS321_Bioinformatics?tab=readme-ov-file)
+- [Introduction to Algorithms 3rd Edition: BTrees](https://archive.org/details/introduction-to-algorithms-third-edition-2009/page/485/mode/2up)
+- [Youtube: Understanding B-Trees: The Data Structure Behind Modern Databases](https://www.youtube.com/watch?v=K1a2Bk8NrYQ)
+- [Learn Rust With Entirely Too Many Linked Lists](https://rust-unofficial.github.io/too-many-lists/)
+- [Youtube: ULTIMATE Rust Lang Tutorial!](https://www.youtube.com/watch?v=OX9HJsJUDxA&list=PLai5B987bZ9CoVR-QEIN9foz4QCJ0H2Y8)

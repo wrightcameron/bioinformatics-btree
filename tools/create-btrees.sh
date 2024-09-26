@@ -1,7 +1,7 @@
 #!/bin/sh
 
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
-BUILD_DIR=$SCRIPT_DIR/../target/debug
+BUILD_DIR=$SCRIPT_DIR/../target/release
 GBK_FILES=$SCRIPT_DIR/../data/geneBankFiles
 
 case $# in

@@ -7,7 +7,7 @@ use gene;
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
 struct Cli {
-    /// specifies whether the program should use cache (value 1) or no cache (value 0); if the value is 1, the <cache-size> has to be specified
+    /// specifies whether the program should use cache (value 1) or no cache (value 0); if the value is 1, the cache-size has to be specified
     #[arg(short, long, default_value_t = 0)]
     cache: u32,
     /// the degree to be used for the B-Tree. If the user specifies 0, then our program should choose the optimum degree based on a disk block size of 4096 bytes and the size of our B-Tree node on disk
