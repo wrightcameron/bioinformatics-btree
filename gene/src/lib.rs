@@ -1,4 +1,5 @@
 
+/// Gene Seqeuence type, represented as a u64 binary sequence
 type GeneSeq = u64;
 
 /// Change sequence of gene's to binary.

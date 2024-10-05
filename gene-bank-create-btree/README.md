@@ -1,5 +1,9 @@
 # Gene Bank Create BTree
 
+Parse 
+
+## Build
+
 ## Usage
 
 ```bash
